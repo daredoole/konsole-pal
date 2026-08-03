@@ -18,6 +18,12 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
+[project.urls]
+Homepage = "https://github.com/daredoole/knsole-pal"
+Documentation = "https://github.com/daredoole/knsole-pal#readme"
+Issues = "https://github.com/daredoole/knsole-pal/issues"
+Changelog = "https://github.com/daredoole/knsole-pal/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 dev = ["build>=1.2", "ruff>=0.12", "twine>=6"]
 

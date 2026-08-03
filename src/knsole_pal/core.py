@@ -6,7 +6,7 @@ import json
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 import tempfile
 import time
@@ -134,7 +134,7 @@ def _discover_zellij_tab(session: str, pane_id: str) -> str:
         command += ["--session", session]
     command += ["action", "list-panes", "--json"]
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -295,7 +295,7 @@ def find_qdbus() -> str | None:
 
 def _run_quiet(command: list[str]) -> bool:
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
@@ -545,7 +545,7 @@ def spawn_animator(path: Path) -> None:
                 return
         except (OSError, ValueError):
             pass
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # nosec B603
             [sys.executable, "-m", "knsole_pal.cli", "_animate", str(path)],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

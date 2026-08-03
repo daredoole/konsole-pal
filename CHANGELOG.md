@@ -8,6 +8,10 @@
 - Add static zero-idle-animation mode and runtime reset/repair commands.
 - Add regression coverage for stale focus events, fixed-width animation, hooks, settings, audio, SSH PTYs, tmux, and Zellij.
 - Add Python 3.10–3.14 CI, real multiplexer CI, verified package builds, and trusted release automation.
+- Add real isolated-Konsole screenshots, a complete three-command quick start,
+  troubleshooting, uninstall guidance, and PyPI-safe documentation links.
+- Add enforced secret scanning, Bandit analysis, CodeQL, pinned GitHub Actions,
+  private vulnerability reporting, and a published security/privacy review.
 
 ## 0.6.1 - 2026-08-03
 

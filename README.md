@@ -1,107 +1,123 @@
 # knsole-pal 🐰
 
-`knsole-pal` gives every Konsole AI-agent tab a tiny state indicator:
+[![CI](https://github.com/daredoole/knsole-pal/actions/workflows/ci.yml/badge.svg)](https://github.com/daredoole/knsole-pal/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/knsole-pal.svg)](https://pypi.org/project/knsole-pal/)
+[![Python](https://img.shields.io/pypi/pyversions/knsole-pal.svg)](https://pypi.org/project/knsole-pal/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/daredoole/knsole-pal/blob/main/LICENSE)
 
-- `🐇` stays anchored while a gentle activity sparkle pulses beside it.
-- `🐇❗` marks a permission request or question.
-- `🐇💤` rests when the turn is complete.
-- The relevant Konsole tab is selected when it needs attention or finishes.
-- A soft ascending sparkle plays on completion; questions and approvals say “meeep.”
+A tiny, low-resource tab companion for terminal AI agents. It shows when Codex
+or Cursor is working, rests when the task is done, calls attention to questions
+and approvals, and returns you to the right tab without scraping terminal output.
 
-It is a small Python/stdlib CLI. It uses Konsole's own D-Bus session and window
-interfaces, with an OSC title fallback, so there is no tray app, Electron UI, or
-Konsole fork.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/working.gif" alt="Real Konsole window showing the anchored knsole-pal rabbit and pulsing activity sparkle" width="768">
+</p>
 
-## Supported terminal layers
+The rabbit stays in one fixed position. Only the equal-width activity symbol
+changes, so the tab label never shifts and the tab never grows or shrinks.
 
-| Environment | Status display | Attention handoff |
-| --- | --- | --- |
-| Konsole | Native D-Bus tab title | Selects the originating Konsole tab |
-| Zellij | Stable tab ID, with pane-title fallback | Focuses the originating pane/tab |
-| tmux | Stable window title and server socket | Selects the originating window/pane |
-| SSH / other terminals | OSC title sent through the originating PTY | Terminal bell; remote code cannot force-focus a local GUI |
+## What you get
 
-Detection is automatic, including nested sessions. The nearest UI layer wins in
-this order: Zellij, tmux, Konsole, then generic OSC.
+- **Working:** `🐇✨` / `🐇⭐` — a gentle fixed-width pulse.
+- **Completed:** `🐇💤` — a resting bunny plus a soft ascending chime.
+- **Needs you:** `🐇❗` — tab handoff plus a short “meeep.”
+- **Failed:** `🐇💥` — a visible error state and attention sound.
+- One sleeping animator for every tab, not one process per tab.
+- Native Konsole, Zellij, tmux, SSH, and generic terminal support.
+- Safe hook installation that merges existing configuration and creates backups.
+- No network access, telemetry, prompt storage, transcript storage, or runtime dependencies.
 
-## Install
+## Real state previews
 
-Python 3.10+, Konsole, and one of `qdbus6`, `qdbus-qt6`, or `qdbus` are required.
+These screenshots were captured from a real Konsole 26.04 session on an isolated
+display containing only the controlled demo. They contain no username, hostname,
+filesystem path, notifications, or device information.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/done.png" alt="Konsole tab showing the resting completion bunny" width="49%">
+  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/attention.png" alt="Konsole tab showing the attention bunny for a permission request" width="49%">
+</p>
+
+## Install in three commands
+
+Python 3.10 or newer is required. [pipx](https://pipx.pypa.io/) is recommended
+because it installs the CLI in an isolated environment.
 
 ```sh
-pipx install .
+pipx install knsole-pal
 knsole-pal hooks install
 knsole-pal doctor
 ```
 
-For development:
+Restart Codex and Cursor after installing the hooks. That is it.
+
+Prefer `uv`?
 
 ```sh
-python -m venv .venv
-.venv/bin/pip install -e .
-make verify
+uv tool install knsole-pal
+knsole-pal hooks install
 ```
 
-The hook installer merges with existing Codex and Cursor hooks, creates
-`hooks.json.bak` before a change, and writes private mode-0600 files. Restart the
-agents after installation. Use `knsole-pal hooks status` to verify them.
+For native Konsole control, install whichever Qt D-Bus command your distribution
+provides: `qdbus6`, `qdbus-qt6`, or `qdbus`. Without it, knsole-pal safely
+falls back to the standard terminal-title escape sequence.
 
-## Connect Codex
+For sound, it automatically uses the first available player: PipeWire
+(`pw-play`), PulseAudio (`paplay`), or ALSA (`aplay`).
 
-`knsole-pal hooks install codex` manages `~/.codex/hooks.json`. The hooks map:
+## Agent setup
 
-- `UserPromptSubmit` → working
-- `PreToolUse(request_user_input)` → attention sound + select tab
-- `PermissionRequest` → attention + select tab
-- `Stop` → resting/attention + select tab
-- `SessionStart` → resting
-
-Codex project hooks can also live at `<repo>/.codex/hooks.json`, but Codex only
-loads them after the project is trusted.
-
-## Connect Cursor
-
-`knsole-pal hooks install cursor` manages `~/.cursor/hooks.json`. Project-local
-configuration can live at `<repo>/.cursor/hooks.json`.
-
-Cursor's `beforeSubmitPrompt` starts the animation and `stop` rests the bunny and
-selects the tab. Cursor's stop payload does not reliably distinguish a completed
-answer from a question, so both receive the focus handoff.
-
-## SSH
-
-When the agent runs on a remote host, install `knsole-pal` and the relevant hook
-file on that host too. The remote animator writes title escapes to its original
-`/dev/pts/*`; SSH carries them back to Konsole or another compatible local
-terminal. Custom WAV playback remains local-only, so remote completion and
-attention also emit a terminal bell.
-
-No SSH daemon changes, port forwarding, or remote GUI access are required.
-
-## Manual use
-
-Any long command can participate:
+The installer preserves unrelated hooks, writes mode-0600 files, and makes a
+`hooks.json.bak` before changing an existing file.
 
 ```sh
-knsole-pal run --agent tests --label "Test suite" -- pytest
-knsole-pal set attention --agent codex --focus
-knsole-pal status
-knsole-pal sound done
-knsole-pal sound attention
+# Both agents
+knsole-pal hooks install
+
+# Or one agent
+knsole-pal hooks install codex
+knsole-pal hooks install cursor
+
+# Confirm the active configuration
+knsole-pal hooks status
 ```
 
-To keep the title compact, use `--label`, for example:
+Codex events map as follows:
 
-```json
-{ "type": "command", "command": "knsole-pal hook --agent codex --label API" }
-```
+| Event | Result |
+| --- | --- |
+| `SessionStart` | Resting |
+| `UserPromptSubmit` | Working |
+| `PreToolUse(request_user_input)` | Needs you |
+| `PermissionRequest` | Needs you |
+| `Stop` | Completed, or needs you when the final message is a question |
+
+Cursor's `beforeSubmitPrompt` starts work and `stop` completes it. Example hook
+files are available in [examples](https://github.com/daredoole/knsole-pal/tree/main/examples)
+for users who prefer manual setup.
+
+## Terminal support
+
+| Environment | Status display | Attention handoff |
+| --- | --- | --- |
+| Konsole | Native D-Bus tab title | Selects the originating Konsole tab |
+| Zellij | Stable tab ID; pane fallback | Focuses the originating pane/tab |
+| tmux | Stable window title and socket | Selects the originating window/pane |
+| SSH / other terminals | OSC title on the original PTY | Terminal bell |
+
+Nested environments are detected automatically in this order: Zellij, tmux,
+Konsole, then generic OSC. Remote agents cannot and should not force-focus a
+local GUI window; SSH uses the title plus terminal bell instead.
 
 ## Settings
 
-Settings are layered in this order: built-in defaults, user config, nearest
-project config, environment variables, then command flags. User config lives at
-`$XDG_CONFIG_HOME/knsole-pal/config.toml` (normally
-`~/.config/knsole-pal/config.toml`); project config is `.knsole-pal.toml`.
+Settings are layered from lowest to highest priority:
+
+1. Built-in defaults
+2. User config: `~/.config/knsole-pal/config.toml`
+3. Nearest project config: `.knsole-pal.toml`
+4. `KNSOLE_PAL_*` environment variables
+5. Command flags
 
 ```sh
 knsole-pal config show
@@ -111,75 +127,131 @@ knsole-pal config set animation static --project
 knsole-pal config reset volume
 ```
 
-Available keys are `focus` (`all`, `attention`, `never`), `sound`, `volume`
-(`0..1`), `animation` (`pulse`, `static`), `animation_interval`,
-`label_max_cells`, and `working_timeout`. Uppercase `KNSOLE_PAL_*` environment
-variables provide the same controls. See [`examples/config.toml`](examples/config.toml).
+| Setting | Values | Default |
+| --- | --- | --- |
+| `focus` | `all`, `attention`, `never` | `all` |
+| `sound` | `true`, `false` | `true` |
+| `volume` | `0.0`–`1.0` | `0.7` |
+| `animation` | `pulse`, `static` | `pulse` |
+| `animation_interval` | `0.2`–`10.0` seconds | `0.85` |
+| `label_max_cells` | `8`–`80` | `26` |
+| `working_timeout` | `0` or `60`–`604800` seconds | `86400` |
 
-`focus=attention` is a calmer recommended setup: questions, approvals, and
-errors switch tabs, while ordinary completions only rest the bunny and chime.
-`animation=static` removes ongoing animation and lets the worker exit immediately.
+`focus=attention` is a calmer setup: questions, approvals, and errors select
+their tabs, while normal completions only rest and chime. `animation=static`
+shows one working icon and immediately exits the animator for effectively zero
+idle resource use.
 
-## Maintenance
+See [examples/config.toml](https://github.com/daredoole/knsole-pal/blob/main/examples/config.toml)
+for a complete file.
+
+## Manual use
+
+Wrap any command:
+
+```sh
+knsole-pal run --agent tests --label "Test suite" -- pytest
+```
+
+Or update the current tab directly:
+
+```sh
+knsole-pal set working --agent codex
+knsole-pal set attention --agent codex --focus
+knsole-pal status
+knsole-pal sound done
+knsole-pal sound attention
+```
+
+## Maintenance and troubleshooting
 
 ```sh
 knsole-pal doctor
 knsole-pal doctor --repair
 knsole-pal hooks status
 knsole-pal reset
-knsole-pal hooks uninstall
 ```
 
-`doctor --repair` safely reinstalls missing managed hooks and clears stale worker
-metadata. `reset` stops the animator, restores resting titles, and clears runtime
-state; it does not remove settings or hooks.
+- **No bunny:** run `knsole-pal doctor --repair`, restart the agent, and submit a prompt.
+- **No sound:** run `knsole-pal sound done` and install PipeWire, PulseAudio, or ALSA tools.
+- **Too much tab switching:** run `knsole-pal config set focus attention`.
+- **Prefer no motion:** run `knsole-pal config set animation static`.
+- **Stale title:** run `knsole-pal reset`.
+- **SSH:** install knsole-pal and its hooks on the remote host as well.
 
-## Behavior and limits
+`reset` stops the shared animator, restores resting titles, and removes runtime
+state. It does not remove settings or agent hooks.
 
-- Focus handoff selects a tab inside its existing Konsole window. It intentionally
-  does not force the whole Konsole application above other desktop windows.
-- A Codex final message that looks like a question is shown as `🐇❗`; other stop
-  events use `🐇💤`.
-- Focus requests are one-shot events with a short freshness window. They are
-  atomically consumed, so animator restarts cannot select tabs for old completed
-  work; simultaneous requests prioritize input/approval, then the newest event.
-- Hook state is kept in a private directory under `$XDG_RUNTIME_DIR` and contains
-  only the agent label and Konsole D-Bus target—never prompts or transcripts.
-- If D-Bus title setting is unavailable, the tool falls back to the standard
-  terminal title escape sequence.
-- Sound playback tries PipeWire (`pw-play`), PulseAudio (`paplay`), then ALSA
-  (`aplay`). It is asynchronous and never holds up an agent hook.
-- All tabs share one sleeping animator process. Frames update at 0.85-second
-  intervals and use one D-Bus call per active tab; the low-priority worker exits
-  when idle.
-- Every animated prefix has the same code-point and terminal-cell width, keeping
-  the rabbit, project label, and Konsole tab width fixed. Labels are
-  control-character sanitized and capped at 26 terminal cells.
-- Set `KNSOLE_PAL_SOUND=off` to silence sounds, or add `--no-sound` to an
-  individual hook command. Volume-adjusted WAV files are generated once and
-  cached privately.
+## Privacy and security
 
-## Release checks
+- Runtime files live under `$XDG_RUNTIME_DIR/knsole-pal` in a mode-0700 directory.
+- State, configuration, generated sounds, hook files, and backups use mode 0600.
+- State contains only a short display label and terminal routing identifiers.
+- Prompts, responses, transcripts, command output, and environment dumps are never stored.
+- Labels are stripped of control characters and width-limited before reaching a title.
+- External programs are invoked with argument arrays and `shell=False`.
+- The package has no runtime dependencies and performs no network requests or telemetry.
 
-`make verify` runs lint, the complete unit/integration suite, bytecode
-compilation, wheel/sdist builds, and metadata validation. Real tmux and Zellij
-handoffs are exercised when both programs are installed. CI repeats this on
-Python 3.10 through 3.14 and publishes signed-in-by-identity PyPI releases only
-from version tags.
+The `knsole-pal run -- ...` command intentionally executes exactly the local
+command placed after `--`; it does not interpret it through a shell.
 
-## Why this approach
+See [SECURITY.md](https://github.com/daredoole/knsole-pal/blob/main/SECURITY.md)
+for reporting and
+[docs/SECURITY-REVIEW.md](https://github.com/daredoole/knsole-pal/blob/main/docs/SECURITY-REVIEW.md)
+for the release threat model
+and audit results.
 
-Konsole officially exposes the current session and window over D-Bus, and its tab
-titles support the shell-set window title. Codex and Cursor both expose lifecycle
-hooks, so hook events are more reliable and lighter than scraping terminal output
-or guessing from process CPU usage.
+## Resource use
+
+All tabs share one low-priority Python worker. It sleeps between 0.85-second
+updates and exits after work ends. The 0.7.0 release measurement showed
+effectively 0% CPU while sleeping, approximately 21.5 MiB RSS for the single
+shared worker, and approximately 59 ms hook startup. Results vary by system.
+
+Static animation mode exits immediately after rendering the working title.
+Sounds are synthesized once, cached privately by volume, and played asynchronously.
+
+## Uninstall
+
+```sh
+knsole-pal reset
+knsole-pal hooks uninstall
+pipx uninstall knsole-pal
+```
+
+If installed with uv, replace the last command with
+`uv tool uninstall knsole-pal`. Settings remain in
+`~/.config/knsole-pal/config.toml` until you remove them.
+
+## Development
+
+```sh
+git clone https://github.com/daredoole/knsole-pal.git
+cd knsole-pal
+uv sync --extra dev
+make verify
+```
+
+`make verify` runs Ruff, all unit tests, real tmux/Zellij integration tests
+when available, bytecode compilation, wheel/sdist builds, and package metadata
+validation. CI repeats the suite on Python 3.10 through 3.14.
+
+Please read [CONTRIBUTING.md](https://github.com/daredoole/knsole-pal/blob/main/CONTRIBUTING.md),
+the [changelog](https://github.com/daredoole/knsole-pal/blob/main/CHANGELOG.md),
+and the [MIT license](https://github.com/daredoole/knsole-pal/blob/main/LICENSE).
+
+## Design limits
+
+- Focus handoff selects a tab inside its existing Konsole window. It does not
+  force the Konsole application above unrelated desktop windows.
+- Generic terminals and SSH receive an OSC title and bell, not local GUI control.
+- Cursor's stop event does not always distinguish an answer from a question, so
+  it receives the configured completion handoff.
 
 ## References
 
 - [KDE: Scripting Konsole](https://docs.kde.org/trunk_kf6/en/konsole/konsole/scripting.html)
-- [KDE: Konsole tab-title settings](https://docs.kde.org/trunk_kf6/en/konsole/konsole/console-dialogs.html)
 - [OpenAI: Codex hooks](https://developers.openai.com/codex/hooks)
-- [OpenAI: Codex advanced configuration](https://developers.openai.com/codex/config-advanced)
-- [Cursor: Agent best practices and stop-hook example](https://cursor.com/blog/agent-best-practices)
-- [Zellij: CLI recipes and stable pane/tab targeting](https://zellij.dev/documentation/cli-recipes.html)
+- [Cursor: Agent best practices](https://cursor.com/blog/agent-best-practices)
+- [Zellij: CLI recipes](https://zellij.dev/documentation/cli-recipes.html)
 - [tmux manual](https://man7.org/linux/man-pages/man1/tmux.1.html)

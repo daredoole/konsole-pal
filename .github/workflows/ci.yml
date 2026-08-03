@@ -8,6 +8,23 @@ permissions:
   contents: read
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          python-version: "3.14"
+      - name: Static security analysis
+        run: uvx bandit -r src -q
+      - name: Secret scan
+        run: >-
+          uvx detect-secrets scan --all-files
+          --exclude-files '(^|/)(\.git|\.venv|build|dist|graphify-out|\.pytest_cache|\.ruff_cache)/'
+          | python -c 'import json, sys; data=json.load(sys.stdin); findings=sum(map(len, data["results"].values())); print(f"secret findings: {findings}"); raise SystemExit(findings != 0)'
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -15,8 +32,8 @@ jobs:
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           python-version: ${{ matrix.python }}
       - run: uv run --extra dev ruff check src tests
@@ -27,12 +44,12 @@ jobs:
   multiplexers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           python-version: "3.14"
       - run: sudo apt-get update && sudo apt-get install -y tmux
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: zellij
       - run: KNSOLE_PAL_INTEGRATION=1 uv run python -m unittest tests.test_multiplexer_integration -v

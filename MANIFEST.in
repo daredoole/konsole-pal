@@ -1,2 +1,4 @@
 include CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md SECURITY.md
+include Makefile uv.lock
 recursive-include examples *.json *.toml
+recursive-include docs *.md *.png *.gif

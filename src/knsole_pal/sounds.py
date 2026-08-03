@@ -4,7 +4,7 @@ import math
 import os
 import shutil
 import struct
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 import wave
 from collections.abc import Callable, Mapping
@@ -136,7 +136,7 @@ def play_sound(
     if not player:
         return False
     try:
-        subprocess.Popen(
+        subprocess.Popen(  # nosec B603
             [player, str(sound_path(kind, env, volume))],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

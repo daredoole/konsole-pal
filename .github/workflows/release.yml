@@ -13,15 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           python-version: "3.13"
-      - run: uv run --extra dev python -m unittest discover -s tests -v
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: zellij
+      - run: uv run --extra dev ruff check src tests
+      - run: uvx bandit -r src -q
+      - run: KNSOLE_PAL_INTEGRATION=1 uv run --extra dev python -m unittest discover -s tests -v
       - run: uv build
       - run: uv run --extra dev twine check dist/*
-      - uses: pypa/gh-action-pypi-publish@release/v1
-      - uses: softprops/action-gh-release@v2
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          attestations: true
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*
           generate_release_notes: true

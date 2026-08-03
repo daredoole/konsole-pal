@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -127,7 +127,8 @@ def command_run(args: argparse.Namespace) -> int:
         "working", agent=args.agent, label=label, target=target, settings=settings
     )
     try:
-        result = subprocess.run(args.command, check=False)
+        # `run` intentionally executes the command supplied by the local user.
+        result = subprocess.run(args.command, check=False)  # nosec B603
     except KeyboardInterrupt:
         update_session(
             "attention",
