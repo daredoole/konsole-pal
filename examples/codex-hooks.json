@@ -1,0 +1,41 @@
+{
+  "description": "Show Codex state in the current Konsole tab.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "knsole-pal hook --agent codex" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "knsole-pal hook --agent codex" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "request_user_input|AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "knsole-pal hook --agent codex" }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          { "type": "command", "command": "knsole-pal hook --agent codex" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "knsole-pal hook --agent codex" }
+        ]
+      }
+    ]
+  }
+}

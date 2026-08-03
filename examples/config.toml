@@ -1,0 +1,8 @@
+[settings]
+focus = "attention"
+sound = true
+volume = 0.7
+animation = "pulse"
+animation_interval = 0.85
+label_max_cells = 26
+working_timeout = 86400

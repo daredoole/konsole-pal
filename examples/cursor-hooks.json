@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "knsole-pal hook --agent cursor" }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "knsole-pal hook --agent cursor" }
+    ],
+    "stop": [
+      { "command": "knsole-pal hook --agent cursor" }
+    ]
+  }
+}
+

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv run --extra dev ruff check src tests
+      - run: uv run --extra dev python -m unittest discover -s tests -v
+      - run: uv build
+      - run: uv run --extra dev twine check dist/*
+
+  multiplexers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: zellij
+      - run: KNSOLE_PAL_INTEGRATION=1 uv run python -m unittest tests.test_multiplexer_integration -v

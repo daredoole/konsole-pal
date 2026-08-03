@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knsole-pal"
+version = "0.7.0"
+description = "Animated Konsole tab status and focus handoff for terminal AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "knsole-pal contributors" }]
+keywords = ["konsole", "codex", "cursor", "terminal", "agent"]
+classifiers = [
+  "Environment :: Console",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "ruff>=0.12", "twine>=6"]
+
+[project.scripts]
+knsole-pal = "knsole_pal.cli:main"
+kp = "knsole_pal.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "SIM105"]
