@@ -1,8 +1,10 @@
 import json
 import os
+import pty
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -64,8 +66,21 @@ class MultiplexerIntegrationTests(unittest.TestCase):
     def test_real_zellij_title_and_focus_handoff(self):
         zellij = shutil.which("zellij")
         session = f"kp-integration-{uuid.uuid4().hex[:12]}"
+        client = None
+        master = None
+        slave = None
         try:
             run([zellij, "attach", "--create-background", session])
+            master, slave = pty.openpty()
+            client = subprocess.Popen(
+                [zellij, "attach", session],
+                stdin=slave,
+                stdout=slave,
+                stderr=slave,
+                env={**os.environ, "TERM": "xterm-256color"},
+                close_fds=True,
+            )
+            time.sleep(0.5)
             pane_name = run(
                 [
                     zellij,
@@ -117,6 +132,16 @@ class MultiplexerIntegrationTests(unittest.TestCase):
             self.assertEqual(selected["tab_name"], "🐇💤 integration")
             self.assertTrue(selected["is_focused"])
         finally:
+            if client is not None:
+                client.terminate()
+                try:
+                    client.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    client.kill()
+                    client.wait(timeout=2)
+            for descriptor in (master, slave):
+                if descriptor is not None:
+                    os.close(descriptor)
             subprocess.run(
                 [zellij, "kill-session", session],
                 stdin=subprocess.DEVNULL,

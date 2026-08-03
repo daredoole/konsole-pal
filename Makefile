@@ -12,6 +12,7 @@ lint:
 security:
 	uvx bandit -r src -q
 	uvx detect-secrets scan --all-files --exclude-files '(^|/)(\.git|\.venv|build|dist|graphify-out|\.pytest_cache|\.ruff_cache)/' | python -c 'import json, sys; data=json.load(sys.stdin); findings=sum(map(len, data["results"].values())); print(f"secret findings: {findings}"); raise SystemExit(findings != 0)'
+	uvx --with tomli pip-audit --local --skip-editable
 
 build:
 	uvx --with packaging validate-pyproject pyproject.toml

@@ -25,7 +25,7 @@ changes, so the tab label never shifts and the tab never grows or shrinks.
 - One sleeping animator for every tab, not one process per tab.
 - Native Konsole, Zellij, tmux, SSH, and generic terminal support.
 - Safe hook installation that merges existing configuration and creates backups.
-- No network access, telemetry, prompt storage, transcript storage, or runtime dependencies.
+- No network access, telemetry, prompt storage, or transcript storage.
 
 ## Real state previews
 
@@ -190,7 +190,8 @@ state. It does not remove settings or agent hooks.
 - Prompts, responses, transcripts, command output, and environment dumps are never stored.
 - Labels are stripped of control characters and width-limited before reaching a title.
 - External programs are invoked with argument arrays and `shell=False`.
-- The package has no runtime dependencies and performs no network requests or telemetry.
+- Python 3.11+ has no runtime dependencies; Python 3.10 uses only the small
+  `tomli` standard-library backport. The package performs no network requests or telemetry.
 
 The `knsole-pal run -- ...` command intentionally executes exactly the local
 command placed after `--`; it does not interpret it through a shell.

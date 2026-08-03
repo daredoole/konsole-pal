@@ -11,10 +11,10 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: "3.14"
       - name: Static security analysis
@@ -24,6 +24,8 @@ jobs:
           uvx detect-secrets scan --all-files
           --exclude-files '(^|/)(\.git|\.venv|build|dist|graphify-out|\.pytest_cache|\.ruff_cache)/'
           | python -c 'import json, sys; data=json.load(sys.stdin); findings=sum(map(len, data["results"].values())); print(f"secret findings: {findings}"); raise SystemExit(findings != 0)'
+      - name: Python 3.10 backport dependency audit
+        run: uvx --with tomli pip-audit --local --skip-editable
 
   test:
     runs-on: ubuntu-latest
@@ -32,8 +34,8 @@ jobs:
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
       - run: uv run --extra dev ruff check src tests
@@ -44,8 +46,8 @@ jobs:
   multiplexers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: "3.14"
       - run: sudo apt-get update && sudo apt-get install -y tmux

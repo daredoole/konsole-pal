@@ -15,7 +15,8 @@ working directory basename, and terminal routing target are reduced to a small
 state record. Prompts, responses, transcripts, tool input, environment dumps,
 and command output are neither retained nor transmitted.
 
-The package contains no network client and declares no runtime dependencies.
+The package contains no network client. Python 3.11+ declares no runtime
+dependencies; Python 3.10 uses only the `tomli` standard-library backport.
 Generated sounds and state remain in the user's private runtime directory.
 
 ## Controls
@@ -42,6 +43,7 @@ Generated sounds and state remain in the user's private runtime directory.
   machine identifier, credential, or real device path.
 - Bandit: no unresolved findings. Deliberate subprocess calls are documented
   inline; all use argument arrays and no shell.
+- `pip-audit`: no known vulnerability in the Python 3.10 `tomli` backport.
 - Ruff, bytecode compilation, wheel/sdist metadata checks, and the complete test
   suite must pass before release.
 - Real tmux and Zellij integration tests verify stable target selection.
