@@ -16,6 +16,9 @@ and approvals, and returns you to the right tab without scraping terminal output
 The rabbit stays in one fixed position. Only the equal-width activity symbol
 changes, so the tab label never shifts and the tab never grows or shrinks.
 
+The CLI follows the same idea: one memorable rabbit, calm typography, useful
+empty states, and no decorative work when output is piped or requested as JSON.
+
 ## What you get
 
 - **Working:** `🐇✨` / `🐇⭐` — a gentle fixed-width pulse.
@@ -38,6 +41,16 @@ filesystem path, notifications, or device information.
   <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/attention.png" alt="Konsole tab showing the attention bunny for a permission request" width="49%">
 </p>
 
+## A CLI designed for humans and scripts
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/cli.png" alt="Real Konsole window showing the Konsole Pal preferences interface" width="768">
+</p>
+
+Interactive commands use a terminal-native palette and aligned status rows.
+`NO_COLOR` disables color, non-TTY output contains no escape sequences, and
+`--json` is available for status, setup, doctor, settings, and hook health.
+
 ## Install in three commands
 
 Python 3.10 or newer is required. [pipx](https://pipx.pypa.io/) is recommended
@@ -45,8 +58,8 @@ because it installs the CLI in an isolated environment.
 
 ```sh
 pipx install konsole-pal
-konsole-pal hooks install
-konsole-pal doctor
+konsole-pal setup
+konsole-pal demo
 ```
 
 Restart Codex and Cursor after installing the hooks. That is it.
@@ -55,7 +68,7 @@ Prefer `uv`?
 
 ```sh
 uv tool install konsole-pal
-konsole-pal hooks install
+konsole-pal setup
 ```
 
 For native Konsole control, install whichever Qt D-Bus command your distribution
@@ -71,12 +84,15 @@ The installer preserves unrelated hooks, writes mode-0600 files, and makes a
 `hooks.json.bak` before changing an existing file.
 
 ```sh
-# Both agents
-konsole-pal hooks install
+# Guided setup for both agents
+konsole-pal setup
+
+# Calm defaults without prompts (useful for dotfiles)
+konsole-pal setup --yes
 
 # Or one agent
-konsole-pal hooks install codex
-konsole-pal hooks install cursor
+konsole-pal setup codex
+konsole-pal setup cursor
 
 # Confirm the active configuration
 konsole-pal hooks status
@@ -123,6 +139,7 @@ Settings are layered from lowest to highest priority:
 konsole-pal config show
 konsole-pal config set focus attention
 konsole-pal config set volume 0.45
+konsole-pal config set sprite_size large
 konsole-pal config set animation static --project
 konsole-pal config reset volume
 ```
@@ -134,13 +151,21 @@ konsole-pal config reset volume
 | `volume` | `0.0`–`1.0` | `0.7` |
 | `animation` | `pulse`, `static` | `pulse` |
 | `animation_interval` | `0.2`–`10.0` seconds | `0.85` |
+| `sprite_size` | `small`, `medium`, `large` | `medium` |
 | `label_max_cells` | `8`–`80` | `26` |
 | `working_timeout` | `0` or `60`–`604800` seconds | `86400` |
 
 `focus=attention` is a calmer setup: questions, approvals, and errors select
 their tabs, while normal completions only rest and chime. `animation=static`
 shows one working icon and immediately exits the animator for effectively zero
-idle resource use.
+idle resource use. Sprite presets change the rabbit's fixed-width footprint;
+Konsole controls the actual emoji font size for the whole tab bar.
+
+| Sprite preset | Working | Complete | Needs you |
+| --- | --- | --- | --- |
+| `small` | `🐇*` / `🐇+` | `🐇z` | `🐇!` |
+| `medium` | `🐇✨` / `🐇⭐` | `🐇💤` | `🐇❗` |
+| `large` | `🐇✨✨` / `🐇⭐⭐` | `🐇💤💤` | `🐇❗❗` |
 
 See [examples/config.toml](https://github.com/daredoole/konsole-pal/blob/main/examples/config.toml)
 for a complete file.
@@ -161,7 +186,11 @@ konsole-pal set attention --agent codex --focus
 konsole-pal status
 konsole-pal sound done
 konsole-pal sound attention
+konsole-pal completions zsh
 ```
+
+Generate completions for `bash`, `zsh`, `fish`, or `powershell`. Human-readable
+commands keep routing paths private unless `--verbose` is supplied.
 
 ## Maintenance and troubleshooting
 
@@ -209,6 +238,7 @@ updates and exits after work ends. The 0.7.0 release measurement showed
 effectively 0% CPU while sleeping, approximately 21.5 MiB RSS for the single
 shared worker, and approximately 59 ms hook startup. Results vary by system.
 
+The polished CLI adds no runtime dependency and does not run in the background.
 Static animation mode exits immediately after rendering the working title.
 Sounds are synthesized once, cached privately by volume, and played asynchronously.
 

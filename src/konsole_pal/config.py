@@ -24,6 +24,7 @@ class Settings:
     volume: float = 0.7
     animation: str = "pulse"
     animation_interval: float = 0.85
+    sprite_size: str = "medium"
     label_max_cells: int = 26
     working_timeout: float = 86_400.0
 
@@ -45,6 +46,7 @@ ENVIRONMENT_KEYS = {
     "volume": "KONSOLE_PAL_VOLUME",
     "animation": "KONSOLE_PAL_ANIMATION",
     "animation_interval": "KONSOLE_PAL_ANIMATION_INTERVAL",
+    "sprite_size": "KONSOLE_PAL_SPRITE_SIZE",
     "label_max_cells": "KONSOLE_PAL_LABEL_MAX_CELLS",
     "working_timeout": "KONSOLE_PAL_WORKING_TIMEOUT",
 }
@@ -96,6 +98,11 @@ def parse_setting(key: str, value: Any) -> Any:
         normalized = str(value).strip().lower()
         if normalized not in {"pulse", "static"}:
             raise ConfigError("animation must be pulse or static")
+        return normalized
+    if key == "sprite_size":
+        normalized = str(value).strip().lower()
+        if normalized not in {"small", "medium", "large"}:
+            raise ConfigError("sprite_size must be small, medium, or large")
         return normalized
     if key == "sound":
         return _parse_bool(value, key)

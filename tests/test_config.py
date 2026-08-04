@@ -41,6 +41,14 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(settings.volume, 0.8)
         self.assertEqual(settings.focus, "never")
 
+    def test_sprite_size_accepts_three_safe_presets(self):
+        path = user_config_path(self.env)
+        for size in ("small", "medium", "large"):
+            write_setting(path, "sprite_size", size)
+            self.assertEqual(load_settings(cwd=self.project, env=self.env).sprite_size, size)
+        with self.assertRaisesRegex(ConfigError, "sprite_size"):
+            write_setting(path, "sprite_size", "enormous")
+
     def test_write_and_reset_preserve_only_explicit_values(self):
         path = user_config_path(self.env)
         write_setting(path, "volume", "0.25")

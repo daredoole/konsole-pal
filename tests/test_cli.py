@@ -1,11 +1,22 @@
 import argparse
 import io
 import os
+import tempfile
 import unittest
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
-from konsole_pal.cli import build_parser, command_run, main
+from konsole_pal.cli import (
+    build_parser,
+    command_completions,
+    command_demo,
+    command_run,
+    command_setup,
+    command_status,
+    main,
+)
+from konsole_pal.config import Settings
 from konsole_pal.core import KonsoleTarget
 
 
@@ -18,6 +29,17 @@ class CliTests(unittest.TestCase):
         hooks = parser.parse_args(["hooks", "install", "codex", "--force"])
         self.assertEqual(hooks.agents, ["codex"])
         self.assertTrue(hooks.force)
+        setup = parser.parse_args(["setup", "--sprite-size", "large", "--yes"])
+        self.assertEqual(setup.sprite_size, "large")
+        completion = parser.parse_args(["completions", "fish"])
+        self.assertEqual(completion.shell, "fish")
+
+    def test_help_prioritizes_onboarding_and_hides_internal_bridge(self):
+        help_text = build_parser().format_help()
+        self.assertIn("setup", help_text)
+        self.assertIn("demo", help_text)
+        self.assertNotIn("==SUPPRESS==", help_text)
+        self.assertNotIn("consume an agent lifecycle hook", help_text)
 
     @patch("konsole_pal.cli.subprocess.run")
     @patch("konsole_pal.cli.update_session")
@@ -49,6 +71,74 @@ class CliTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("volume must be between 0 and 1", stderr.getvalue())
         self.assertNotIn("Traceback", stderr.getvalue())
+
+    def test_human_status_has_a_useful_empty_state_and_json_stays_clean(self):
+        with tempfile.TemporaryDirectory() as directory:
+            human = io.StringIO()
+            with patch("konsole_pal.cli.runtime_dir", return_value=Path(directory)), redirect_stdout(human):
+                self.assertEqual(
+                    command_status(argparse.Namespace(json=False, verbose=False)), 0
+                )
+            self.assertIn("The burrow is quiet", human.getvalue())
+            self.assertIn("konsole-pal demo", human.getvalue())
+
+            machine = io.StringIO()
+            with patch("konsole_pal.cli.runtime_dir", return_value=Path(directory)), redirect_stdout(machine):
+                command_status(argparse.Namespace(json=True, verbose=False))
+            self.assertEqual(machine.getvalue().strip(), "[]")
+
+    @patch("konsole_pal.cli.install_hooks", return_value=[])
+    @patch("konsole_pal.cli.write_user_setting")
+    @patch("konsole_pal.cli.find_audio_player", return_value="pw-play")
+    @patch("konsole_pal.cli.load_settings", return_value=Settings(focus="attention"))
+    def test_noninteractive_setup_uses_calm_defaults(
+        self, _settings, _audio, write, install
+    ):
+        args = argparse.Namespace(
+            yes=False,
+            focus=None,
+            sprite_size="large",
+            animation=None,
+            agents=[],
+            force=False,
+            preview_sound=False,
+            json=True,
+        )
+        output = io.StringIO()
+        with redirect_stdout(output), patch("builtins.input") as prompt:
+            self.assertEqual(command_setup(args), 0)
+        prompt.assert_not_called()
+        self.assertIn('"sprite_size": "large"', output.getvalue())
+        write.assert_any_call("focus", "attention")
+        write.assert_any_call("sprite_size", "large")
+        install.assert_called_once()
+
+    @patch("konsole_pal.cli.time.sleep")
+    @patch("konsole_pal.cli.update_session")
+    @patch("konsole_pal.cli._target_or_error")
+    @patch("konsole_pal.cli.load_settings", return_value=Settings(sound=False))
+    def test_demo_visits_each_state_without_focus(
+        self, _settings, target, update, sleep
+    ):
+        target.return_value = KonsoleTarget("", "", "", backend="osc")
+        args = argparse.Namespace(
+            speed=0.01,
+            sound=False,
+            sprite_size="small",
+            label=None,
+        )
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(command_demo(args), 0)
+        self.assertEqual([call.args[0] for call in update.call_args_list], ["working", "attention", "done"])
+        self.assertTrue(all(not call.kwargs["focus"] for call in update.call_args_list))
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_completion_output_is_script_only(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            command_completions(argparse.Namespace(shell="bash"))
+        self.assertIn("complete -F _konsole_pal", output.getvalue())
+        self.assertNotIn("Konsole Pal\n", output.getvalue())
 
 
 if __name__ == "__main__":
