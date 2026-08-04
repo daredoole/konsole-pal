@@ -125,6 +125,12 @@ Hook installers preserve unrelated configuration and create private backups.
 Aider uses its official notification command; OpenCode gets a data-minimizing
 local plugin. `konsole-pal emit STATE --agent NAME` integrates any other tool.
 
+Codex requires one explicit security review after installing or changing a
+hook: restart Codex, run `/hooks`, and trust the Konsole Pal command. On plain
+SSH, setup also disables Codex's competing built-in terminal title with
+`tui.terminal_title = []`. It preserves the rest of `~/.codex/config.toml` and
+creates a private `config.toml.konsole-pal.bak` before changing it.
+
 ## Attention inbox
 
 Completion is display state; attention is durable unread state; focus is a
@@ -172,7 +178,7 @@ Manual integrations can instead pass `--label` to `emit`, `set`, or `run`.
 | Kitty | OSC title + clickable OSC 99 notification | Focuses by window ID when permitted |
 | WezTerm | OSC title + native notification | Activates the originating pane |
 | Ghostty | OSC title + OSC 9 notification | Clickable terminal notification |
-| SSH / other terminals | OSC title on the original PTY | Terminal notification or bell |
+| SSH / other terminals | OSC title on the original PTY; direct Konsole tab title | Terminal notification or bell |
 
 Nested multiplexers take priority over their host terminal. Remote agents never
 invoke local desktop automation; they use terminal escape protocols carried by
@@ -285,7 +291,10 @@ konsole-pal reset
 - **Missed request:** run `konsole-pal inbox --verbose`, then `konsole-pal next`.
 - **Prefer no motion:** run `konsole-pal config set animation static`.
 - **Stale title:** run `konsole-pal reset`.
-- **SSH:** install konsole-pal and its hooks on the remote host as well.
+- **SSH:** install on the remote host, run `konsole-pal setup codex`, restart
+  Codex, then use `/hooks` once to trust the hook. Setup prevents Codex's own
+  spinner title from overwriting the bunny; `doctor --repair` repairs that
+  setting without replacing unrelated Codex configuration.
 
 `reset` stops the shared animator, restores resting titles, and removes runtime
 state. It does not remove settings or agent hooks.
@@ -357,6 +366,9 @@ and the [MIT license](https://github.com/daredoole/konsole-pal/blob/main/LICENSE
 - Focus handoff selects a tab inside its existing Konsole window. It does not
   force the Konsole application above unrelated desktop windows.
 - Generic terminals and SSH receive an OSC title and bell, not local GUI control.
+- Plain SSH uses Konsole's OSC 30 extension after standard OSC 0, so Konsole
+  shows the agent state even when its remote-tab format omits `%w`; other
+  terminals can safely ignore the unsupported extension.
 - Kitty focus requires its opt-in remote-control capability; without it the item
   remains unread and the CLI explains why.
 - Cursor's stop event does not always distinguish an answer from a question, so

@@ -13,6 +13,8 @@ from konsole_pal.core import (
     WORKING_FRAMES,
     KonsoleTarget,
     SessionState,
+    _controlling_tty_device,
+    _controlling_tty_path,
     default_label,
     emit_bell,
     emit_osc_title,
@@ -45,6 +47,16 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.target.session_id, 7)
         self.assertEqual(self.target.key, self.target.key)
         self.assertEqual(len(self.target.key), 16)
+
+    @patch("konsole_pal.core.os.ttyname", return_value="/dev/pts/9")
+    @patch("konsole_pal.core.os.isatty", side_effect=lambda fd: fd == 1)
+    def test_controlling_tty_prefers_reopenable_stream_path(self, _isatty, _ttyname):
+        self.assertEqual(_controlling_tty_path(), "/dev/pts/9")
+
+    @patch("konsole_pal.core.Path.read_text")
+    def test_controlling_tty_device_uses_linux_process_stat(self, read_text):
+        read_text.return_value = "123 (hook worker) S 1 2 3 34822 0 0 0"
+        self.assertEqual(_controlling_tty_device(42), 34822)
 
     def test_opt_in_task_label_is_sanitized_without_reading_hook_content(self):
         label = default_label(
@@ -430,6 +442,46 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(emit_bell(target))
         self.assertEqual(write.call_args_list[0].args[1], "/dev/pts/9")
         self.assertEqual(write.call_args_list[1].args, (b"\x07", "/dev/pts/9"))
+
+    @patch("konsole_pal.core.os.close")
+    @patch("konsole_pal.core.os.write")
+    @patch("konsole_pal.core._controlling_tty_device", return_value=123)
+    @patch("konsole_pal.core.os.stat")
+    @patch("konsole_pal.core.os.open")
+    def test_ssh_pty_permission_falls_back_to_matching_controlling_tty(
+        self, open_tty, stat_tty, _tty_device, write, close
+    ):
+        open_tty.side_effect = [PermissionError, 42]
+        stat_tty.return_value.st_rdev = 123
+
+        self.assertTrue(emit_osc_title("🐇 remote", "/dev/pts/9"))
+
+        self.assertEqual(open_tty.call_args_list[0].args[0], "/dev/pts/9")
+        self.assertEqual(open_tty.call_args_list[1].args[0], "/dev/tty")
+        write.assert_called_once()
+        close.assert_called_once_with(42)
+
+    @patch("konsole_pal.core._write_tty", return_value=True)
+    def test_remote_osc_title_also_sets_konsole_displayed_tab_title(self, write):
+        self.assertTrue(
+            set_title(
+                KonsoleTarget(
+                    "",
+                    "",
+                    "",
+                    backend="osc",
+                    tty_path="/dev/pts/9",
+                    remote=True,
+                ),
+                "🐇 remote",
+            )
+        )
+
+        payload = write.call_args.args[0]
+        self.assertIn(b"\x1b]0;", payload)
+        self.assertIn(b"\x1b]30;", payload)
+        self.assertLess(payload.index(b"\x1b]0;"), payload.index(b"\x1b]30;"))
+        self.assertEqual(write.call_args.args[1], "/dev/pts/9")
 
     def test_real_pty_carries_ssh_title_notification_and_bell_bytes(self):
         master, slave = pty.openpty()

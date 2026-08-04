@@ -1,4 +1,4 @@
-# Security and privacy review — 1.0.0
+# Security and privacy review — 1.0.1
 
 Reviewed: 2026-08-04
 
@@ -34,6 +34,10 @@ descriptions are never inferred from prompts, responses, or hook messages.
 - State/config writes use temporary files followed by atomic replacement.
 - Hook installation merges existing JSON, preserves unrelated entries, creates a
   backup, and fails closed on malformed input unless the user supplies `--force`.
+- Plain-SSH Codex setup changes only `tui.terminal_title`, validates the complete
+  TOML document first, preserves its formatting and unrelated keys, and writes a
+  separate private `config.toml.konsole-pal.bak`. Codex hook trust is never
+  bypassed or approved on the user's behalf.
 - OpenCode receives a local event-only plugin; Aider uses its documented
   notification command. Neither adapter reads transcripts or prompt text.
 - Custom themes are inert JSON. Names, control characters, completeness, and
@@ -41,7 +45,8 @@ descriptions are never inferred from prompts, responses, or hook messages.
 - Terminal labels remove ANSI escape sequences and control characters, normalize
   whitespace, and enforce a terminal-cell limit before reaching D-Bus or OSC.
 - OSC output strips escape and bell characters and writes only to `/dev/tty` or a
-  validated `/dev/pts/*` path.
+  validated `/dev/pts/*` path. Konsole's fixed OSC 30 tab-title extension carries
+  the same sanitized, width-limited title as standard OSC 0.
 - External processes use explicit argument arrays without a shell, bounded
   timeouts where appropriate, closed file descriptors, and suppressed output.
 - Focus requests expire quickly and are consumed atomically, preventing stale

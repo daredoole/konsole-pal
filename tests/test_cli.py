@@ -478,6 +478,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(command_setup(args), 0)
         prompt.assert_not_called()
         self.assertIn('"sprite_size": "large"', output.getvalue())
+        self.assertIn('"codex_config_changed": false', output.getvalue())
         write.assert_any_call("focus", "attention")
         write.assert_any_call("sprite_size", "large")
         install.assert_called_once()

@@ -114,20 +114,54 @@ def runtime_dir(env: Mapping[str, str] = os.environ) -> Path:
     return Path(tempfile.gettempdir()) / f"konsole-pal-{os.getuid()}"
 
 
+def _controlling_tty_device(fd: int) -> int:
+    # Linux exposes the real controlling terminal device in field 7. fstat()
+    # on /dev/tty instead reports the alias device (5:0), which cannot be
+    # matched back to its /dev/pts/N slave.
+    try:
+        process_stat = Path("/proc/self/stat").read_text(encoding="ascii")
+        fields = process_stat[process_stat.rfind(")") + 2 :].split()
+        tty_device = int(fields[4])
+        if tty_device > 0:
+            return tty_device
+    except (OSError, ValueError, IndexError):
+        pass
+    return os.fstat(fd).st_rdev
+
+
 def _controlling_tty_path() -> str:
+    # Interactive shells expose the canonical slave PTY directly. Prefer it
+    # over /dev/tty so a detached animator can reopen the same terminal.
+    for stream_fd in (0, 1, 2):
+        try:
+            if not os.isatty(stream_fd):
+                continue
+            stream_path = os.ttyname(stream_fd)
+            if stream_path.startswith("/dev/pts/"):
+                return stream_path
+        except OSError:
+            continue
+
     try:
         fd = os.open("/dev/tty", os.O_WRONLY | os.O_NOCTTY)
     except OSError:
         return ""
     try:
-        device = os.fstat(fd).st_rdev
+        device = _controlling_tty_device(fd)
     finally:
         os.close(fd)
     pts = Path("/dev/pts")
     try:
         for candidate in pts.iterdir():
-            if candidate.name.isdigit() and candidate.stat().st_rdev == device:
-                return str(candidate)
+            if not candidate.name.isdigit():
+                continue
+            try:
+                if candidate.stat().st_rdev == device:
+                    return str(candidate)
+            except OSError:
+                # PTYs may disappear while scanning, and one stale entry must
+                # not prevent discovery of the current terminal.
+                continue
     except OSError:
         pass
     return "/dev/tty"
@@ -454,7 +488,11 @@ def set_title(target: KonsoleTarget, title: str, *, persist: bool = True) -> boo
         return _run_quiet(command)
 
     if target.backend in {"osc", "kitty", "wezterm", "ghostty"}:
-        return emit_osc_title(title, target.tty_path)
+        return emit_osc_title(
+            title,
+            target.tty_path,
+            konsole_tab=target.remote and target.backend == "osc",
+        )
 
     qdbus = find_qdbus()
     if qdbus:
@@ -485,12 +523,39 @@ def _write_tty(payload: bytes, tty_path: str = "") -> bool:
             os.close(fd)
         return True
     except OSError:
-        return False
+        # Unprivileged containers can expose the originating PTY as
+        # ``nobody:tty``. Opening that concrete /dev/pts path then fails even
+        # though the process may still write through its controlling
+        # /dev/tty. Only use that fallback when both names identify the exact
+        # same device, so a stale session can never write to the wrong tab.
+        if path == "/dev/tty":
+            return False
+        try:
+            expected_device = os.stat(path).st_rdev
+            fd = os.open("/dev/tty", os.O_WRONLY | os.O_NOCTTY)
+            try:
+                if _controlling_tty_device(fd) != expected_device:
+                    return False
+                os.write(fd, payload)
+            finally:
+                os.close(fd)
+            return True
+        except OSError:
+            return False
 
 
-def emit_osc_title(title: str, tty_path: str = "") -> bool:
+def emit_osc_title(
+    title: str,
+    tty_path: str = "",
+    *,
+    konsole_tab: bool = False,
+) -> bool:
     safe = title.replace("\x1b", "").replace("\x07", "")
     payload = f"\x1b]0;{safe}\x07".encode()
+    if konsole_tab:
+        # Konsole's OSC 30 updates its displayed tab title directly. Standard
+        # OSC 0 remains first for every other terminal and window-title user.
+        payload += f"\x1b]30;{safe}\x07".encode()
     return _write_tty(payload, tty_path)
 
 
