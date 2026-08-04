@@ -9,8 +9,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: knsole-pal version
-      placeholder: Output of knsole-pal --version
+      label: konsole-pal version
+      placeholder: Output of konsole-pal --version
     validations:
       required: true
   - type: dropdown
@@ -36,4 +36,4 @@ body:
     id: doctor
     attributes:
       label: Redacted doctor output
-      description: Paste knsole-pal doctor output only after checking it for private information.
+      description: Paste konsole-pal doctor output only after checking it for private information.

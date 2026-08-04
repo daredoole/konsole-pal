@@ -40,19 +40,19 @@ class Settings:
 
 SETTING_KEYS = tuple(Settings.__dataclass_fields__)
 ENVIRONMENT_KEYS = {
-    "focus": "KNSOLE_PAL_FOCUS",
-    "sound": "KNSOLE_PAL_SOUND",
-    "volume": "KNSOLE_PAL_VOLUME",
-    "animation": "KNSOLE_PAL_ANIMATION",
-    "animation_interval": "KNSOLE_PAL_ANIMATION_INTERVAL",
-    "label_max_cells": "KNSOLE_PAL_LABEL_MAX_CELLS",
-    "working_timeout": "KNSOLE_PAL_WORKING_TIMEOUT",
+    "focus": "KONSOLE_PAL_FOCUS",
+    "sound": "KONSOLE_PAL_SOUND",
+    "volume": "KONSOLE_PAL_VOLUME",
+    "animation": "KONSOLE_PAL_ANIMATION",
+    "animation_interval": "KONSOLE_PAL_ANIMATION_INTERVAL",
+    "label_max_cells": "KONSOLE_PAL_LABEL_MAX_CELLS",
+    "working_timeout": "KONSOLE_PAL_WORKING_TIMEOUT",
 }
 
 
 def config_dir(env: Mapping[str, str] = os.environ) -> Path:
     base = env.get("XDG_CONFIG_HOME")
-    return Path(base) / "knsole-pal" if base else Path.home() / ".config" / "knsole-pal"
+    return Path(base) / "konsole-pal" if base else Path.home() / ".config" / "konsole-pal"
 
 
 def user_config_path(env: Mapping[str, str] = os.environ) -> Path:
@@ -64,7 +64,7 @@ def project_config_path(cwd: str | Path | None = None) -> Path | None:
     if current.is_file():
         current = current.parent
     for directory in (current, *current.parents):
-        candidate = directory / ".knsole-pal.toml"
+        candidate = directory / ".konsole-pal.toml"
         if candidate.is_file():
             return candidate
         if (directory / ".git").exists():

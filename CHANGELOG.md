@@ -2,6 +2,9 @@
 
 ## 0.7.0 - 2026-08-03
 
+- Correct the pre-release project spelling to `konsole-pal` across the package,
+  executable, Python module, configuration, hooks, documentation, and repository.
+- Migrate legacy `knsole-pal` hook entries safely while preserving unrelated hooks.
 - Add validated user, project, environment, and command-level settings.
 - Add safe Codex/Cursor hook install, status, uninstall, backup, and repair commands.
 - Add configurable sound volume, focus policy, animation policy, cadence, label width, and stale-work timeout.

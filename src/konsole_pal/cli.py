@@ -58,7 +58,7 @@ def _target_or_error():
     target = target_from_env()
     if target is None:
         raise SystemExit(
-            "knsole-pal: no supported terminal target found "
+            "konsole-pal: no supported terminal target found "
             "(Konsole, Zellij, tmux, or a controlling TTY is required)"
         )
     return target
@@ -119,7 +119,7 @@ def command_hook(args: argparse.Namespace) -> int:
 
 def command_run(args: argparse.Namespace) -> int:
     if not args.command:
-        raise SystemExit("knsole-pal run: provide a command after --")
+        raise SystemExit("konsole-pal run: provide a command after --")
     target = _target_or_error()
     label = args.label or default_label(args.agent)
     settings = _load_settings_for(args)
@@ -180,12 +180,12 @@ def command_status(_args: argparse.Namespace) -> int:
 def command_sound(args: argparse.Namespace) -> int:
     settings = _load_settings_for(args)
     if not settings.sound or not play_sound(args.kind, volume=settings.volume):
-        raise SystemExit("knsole-pal: no supported audio player or sound is disabled")
+        raise SystemExit("konsole-pal: no supported audio player or sound is disabled")
     return 0
 
 
 def command_config(args: argparse.Namespace) -> int:
-    project_path = Path.cwd() / ".knsole-pal.toml"
+    project_path = Path.cwd() / ".konsole-pal.toml"
     if args.config_action == "show":
         settings = load_settings(cwd=Path.cwd())
         print(format_settings(settings), end="")
@@ -278,7 +278,7 @@ def command_doctor(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="knsole-pal",
+        prog="konsole-pal",
         description="Bunny-powered Konsole tab status for AI agents.",
     )
     parser.add_argument("--version", action="version", version=__version__)

@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from knsole_pal.config import Settings
-from knsole_pal.core import (
+from konsole_pal.config import Settings
+from konsole_pal.core import (
     WORKING_FRAMES,
     KonsoleTarget,
     SessionState,
@@ -42,7 +42,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.target.key, self.target.key)
         self.assertEqual(len(self.target.key), 16)
 
-    @patch("knsole_pal.core._discover_zellij_tab", return_value="8")
+    @patch("konsole_pal.core._discover_zellij_tab", return_value="8")
     def test_zellij_target_uses_stable_pane_and_tab_ids(self, discover):
         target = target_from_env(
             {
@@ -64,7 +64,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(target.pane_id, "%7")
         self.assertEqual(target.multiplexer_session, "/tmp/tmux-1000/default")
 
-    @patch("knsole_pal.core._controlling_tty_path", return_value="/dev/pts/9")
+    @patch("konsole_pal.core._controlling_tty_path", return_value="/dev/pts/9")
     def test_ssh_and_generic_terminals_fall_back_to_osc(self, _tty):
         target = target_from_env(
             {"SSH_CONNECTION": "host 1 host 2", "TERM": "xterm-256color"}
@@ -129,8 +129,8 @@ class CoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             env = {"XDG_RUNTIME_DIR": directory}
             with (
-                patch("knsole_pal.core.spawn_animator") as spawn,
-                patch("knsole_pal.core.play_sound") as sound,
+                patch("konsole_pal.core.spawn_animator") as spawn,
+                patch("konsole_pal.core.play_sound") as sound,
             ):
                 path = update_session(
                     "working",
@@ -155,7 +155,7 @@ class CoreTests(unittest.TestCase):
                 label_max_cells=12,
                 working_timeout=120,
             )
-            with patch("knsole_pal.core.spawn_animator"):
+            with patch("konsole_pal.core.spawn_animator"):
                 path = update_session(
                     "done",
                     agent="codex",
@@ -176,8 +176,8 @@ class CoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             env = {"XDG_RUNTIME_DIR": directory}
             with (
-                patch("knsole_pal.core.spawn_animator"),
-                patch("knsole_pal.core.play_sound") as sound,
+                patch("konsole_pal.core.spawn_animator"),
+                patch("konsole_pal.core.play_sound") as sound,
             ):
                 update_session(
                     "done",
@@ -197,14 +197,14 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(sound.call_args_list[1].args, ("attention", env))
             self.assertEqual(sound.call_args_list[0].kwargs, {"volume": 0.7})
 
-    @patch("knsole_pal.core._animator_process_is_live", return_value=False)
-    @patch("knsole_pal.core.set_title", return_value=True)
+    @patch("konsole_pal.core._animator_process_is_live", return_value=False)
+    @patch("konsole_pal.core.set_title", return_value=True)
     def test_reset_restores_resting_title_and_removes_runtime_state(
         self, set_title_mock, _live
     ):
         with tempfile.TemporaryDirectory() as directory:
             env = {"XDG_RUNTIME_DIR": directory}
-            with patch("knsole_pal.core.spawn_animator"):
+            with patch("konsole_pal.core.spawn_animator"):
                 path = update_session(
                     "working",
                     agent="codex",
@@ -220,22 +220,22 @@ class CoreTests(unittest.TestCase):
             self.assertFalse(path.exists())
             self.assertEqual(set_title_mock.call_args.args[1], "🐇💤 Codex · demo")
 
-    @patch("knsole_pal.core._run_quiet", return_value=True)
-    @patch("knsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
     def test_set_title_uses_displayed_and_initial_roles(self, _find, run):
         self.assertTrue(set_title(self.target, "🐇 Codex"))
         self.assertEqual(run.call_count, 2)
         self.assertEqual(run.call_args_list[0].args[0][-2:], ["1", "🐇 Codex"])
         self.assertEqual(run.call_args_list[1].args[0][-2:], ["0", "🐇 Codex"])
 
-    @patch("knsole_pal.core._run_quiet", return_value=True)
-    @patch("knsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
     def test_animation_frames_use_one_dbus_call_after_initial_title(self, _find, run):
         self.assertTrue(set_title(self.target, "🐇⠂  Codex", persist=False))
         run.assert_called_once()
 
-    @patch("knsole_pal.core._run_quiet", return_value=True)
-    @patch("knsole_pal.core.shutil.which", return_value="/usr/bin/zellij")
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.shutil.which", return_value="/usr/bin/zellij")
     def test_zellij_updates_and_focuses_the_originating_tab(self, _which, run):
         target = KonsoleTarget(
             "",
@@ -273,8 +273,8 @@ class CoreTests(unittest.TestCase):
             ],
         )
 
-    @patch("knsole_pal.core._run_quiet", return_value=True)
-    @patch("knsole_pal.core.shutil.which", return_value="/usr/bin/tmux")
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.shutil.which", return_value="/usr/bin/tmux")
     def test_tmux_updates_and_focuses_the_originating_window(self, _which, run):
         target = KonsoleTarget(
             "",
@@ -321,7 +321,7 @@ class CoreTests(unittest.TestCase):
             ],
         )
 
-    @patch("knsole_pal.core._write_tty", return_value=True)
+    @patch("konsole_pal.core._write_tty", return_value=True)
     def test_ssh_osc_title_and_bell_use_the_originating_pty(self, write):
         target = KonsoleTarget("", "", "", backend="osc", tty_path="/dev/pts/9")
         self.assertTrue(emit_osc_title("🐇 Codex", target.tty_path))
@@ -347,8 +347,8 @@ class CoreTests(unittest.TestCase):
             os.close(master)
             os.close(slave)
 
-    @patch("knsole_pal.core.subprocess.Popen")
-    @patch("knsole_pal.core._animator_process_is_live", return_value=True)
+    @patch("konsole_pal.core.subprocess.Popen")
+    @patch("konsole_pal.core._animator_process_is_live", return_value=True)
     def test_all_tabs_reuse_the_live_shared_animator(self, live, popen):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"
@@ -357,8 +357,8 @@ class CoreTests(unittest.TestCase):
         live.assert_called_once_with(321, path)
         popen.assert_not_called()
 
-    @patch("knsole_pal.core.subprocess.Popen")
-    @patch("knsole_pal.core._animator_process_is_live", return_value=False)
+    @patch("konsole_pal.core.subprocess.Popen")
+    @patch("konsole_pal.core._animator_process_is_live", return_value=False)
     def test_stale_or_reused_pid_starts_a_replacement_animator(self, live, popen):
         popen.return_value.pid = 654
         with tempfile.TemporaryDirectory() as directory:
@@ -370,8 +370,8 @@ class CoreTests(unittest.TestCase):
         live.assert_called_once_with(321, path)
         popen.assert_called_once()
 
-    @patch("knsole_pal.core._run_quiet", return_value=True)
-    @patch("knsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.find_qdbus", return_value="/usr/bin/qdbus")
     def test_focus_targets_the_originating_window_and_session(self, _find, run):
         self.assertTrue(focus_tab(self.target))
         command = run.call_args.args[0]

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 AGENTS = ("codex", "cursor")
+COMMAND_NAMES = ("konsole-pal", "knsole-pal")
 
 
 class HookConfigError(ValueError):
@@ -40,7 +41,7 @@ def _is_ours(value: Any, agent: str) -> bool:
     if isinstance(value, list):
         return any(_is_ours(item, agent) for item in value)
     if isinstance(value, str):
-        return "knsole-pal" in value and f"--agent {agent}" in value
+        return any(name in value for name in COMMAND_NAMES) and f"--agent {agent}" in value
     return False
 
 
@@ -61,7 +62,7 @@ def _read(path: Path, *, force: bool = False) -> dict[str, Any]:
 
 
 def _command(agent: str, executable: str | None = None) -> str:
-    binary = executable or shutil.which("knsole-pal") or "knsole-pal"
+    binary = executable or shutil.which("konsole-pal") or "konsole-pal"
     return f"{shlex.quote(str(Path(binary).resolve()))} hook --agent {agent}"
 
 

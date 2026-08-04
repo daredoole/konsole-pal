@@ -102,8 +102,8 @@ class SessionState:
 def runtime_dir(env: Mapping[str, str] = os.environ) -> Path:
     base = env.get("XDG_RUNTIME_DIR")
     if base:
-        return Path(base) / "knsole-pal"
-    return Path(tempfile.gettempdir()) / f"knsole-pal-{os.getuid()}"
+        return Path(base) / "konsole-pal"
+    return Path(tempfile.gettempdir()) / f"konsole-pal-{os.getuid()}"
 
 
 def _controlling_tty_path() -> str:
@@ -531,7 +531,7 @@ def _animator_process_is_live(pid: int, path: Path) -> bool:
         worker_path = Path(os.fsdecode(arguments[animate_index + 1]))
     except (ValueError, IndexError):
         return False
-    return b"knsole_pal.cli" in arguments and worker_path.parent == path.parent
+    return b"konsole_pal.cli" in arguments and worker_path.parent == path.parent
 
 
 def spawn_animator(path: Path) -> None:
@@ -546,7 +546,7 @@ def spawn_animator(path: Path) -> None:
         except (OSError, ValueError):
             pass
         process = subprocess.Popen(  # nosec B603
-            [sys.executable, "-m", "knsole_pal.cli", "_animate", str(path)],
+            [sys.executable, "-m", "konsole_pal.cli", "_animate", str(path)],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

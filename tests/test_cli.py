@@ -5,8 +5,8 @@ import unittest
 from contextlib import redirect_stderr
 from unittest.mock import patch
 
-from knsole_pal.cli import build_parser, command_run, main
-from knsole_pal.core import KonsoleTarget
+from konsole_pal.cli import build_parser, command_run, main
+from konsole_pal.core import KonsoleTarget
 
 
 class CliTests(unittest.TestCase):
@@ -19,9 +19,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(hooks.agents, ["codex"])
         self.assertTrue(hooks.force)
 
-    @patch("knsole_pal.cli.subprocess.run")
-    @patch("knsole_pal.cli.update_session")
-    @patch("knsole_pal.cli._target_or_error")
+    @patch("konsole_pal.cli.subprocess.run")
+    @patch("konsole_pal.cli.update_session")
+    @patch("konsole_pal.cli._target_or_error")
     def test_run_flags_disable_sound_and_focus(self, get_target, update, run):
         target = KonsoleTarget("", "", "", backend="osc", tty_path="/dev/pts/9")
         get_target.return_value = target
@@ -40,8 +40,8 @@ class CliTests(unittest.TestCase):
     def test_invalid_environment_setting_is_a_clean_cli_error(self):
         stderr = io.StringIO()
         with (
-            patch.dict(os.environ, {"KNSOLE_PAL_VOLUME": "9"}, clear=False),
-            patch("sys.argv", ["knsole-pal", "config", "show"]),
+            patch.dict(os.environ, {"KONSOLE_PAL_VOLUME": "9"}, clear=False),
+            patch("sys.argv", ["konsole-pal", "config", "show"]),
             redirect_stderr(stderr),
             self.assertRaises(SystemExit) as raised,
         ):

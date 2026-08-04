@@ -5,7 +5,7 @@ from array import array
 from pathlib import Path
 from unittest.mock import patch
 
-from knsole_pal.sounds import SAMPLE_RATE, play_sound, sound_path, synthesize_sound
+from konsole_pal.sounds import SAMPLE_RATE, play_sound, sound_path, synthesize_sound
 
 
 class SoundTests(unittest.TestCase):
@@ -44,8 +44,8 @@ class SoundTests(unittest.TestCase):
                 loud_peak = max(abs(value) for value in array("h", source.readframes(-1)))
             self.assertLess(quiet_peak, loud_peak)
 
-    @patch("knsole_pal.sounds.subprocess.Popen")
-    @patch("knsole_pal.sounds.find_audio_player", return_value="/usr/bin/pw-play")
+    @patch("konsole_pal.sounds.subprocess.Popen")
+    @patch("konsole_pal.sounds.find_audio_player", return_value="/usr/bin/pw-play")
     def test_playback_is_asynchronous(self, _find, popen):
         with tempfile.TemporaryDirectory() as directory:
             env = {"XDG_RUNTIME_DIR": directory}
@@ -54,9 +54,9 @@ class SoundTests(unittest.TestCase):
             self.assertEqual(command[0], "/usr/bin/pw-play")
             self.assertTrue(command[1].endswith("attention-v2-100.wav"))
 
-    @patch("knsole_pal.sounds.find_audio_player")
+    @patch("konsole_pal.sounds.find_audio_player")
     def test_sound_can_be_disabled(self, find):
-        self.assertFalse(play_sound("done", {"KNSOLE_PAL_SOUND": "off"}))
+        self.assertFalse(play_sound("done", {"KONSOLE_PAL_SOUND": "off"}))
         find.assert_not_called()
 
 
