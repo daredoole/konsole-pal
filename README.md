@@ -1,16 +1,16 @@
-# knsole-pal 🐰
+# konsole-pal 🐰
 
-[![CI](https://github.com/daredoole/knsole-pal/actions/workflows/ci.yml/badge.svg)](https://github.com/daredoole/knsole-pal/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/knsole-pal.svg)](https://pypi.org/project/knsole-pal/)
-[![Python](https://img.shields.io/pypi/pyversions/knsole-pal.svg)](https://pypi.org/project/knsole-pal/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/daredoole/knsole-pal/blob/main/LICENSE)
+[![CI](https://github.com/daredoole/konsole-pal/actions/workflows/ci.yml/badge.svg)](https://github.com/daredoole/konsole-pal/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/konsole-pal.svg)](https://pypi.org/project/konsole-pal/)
+[![Python](https://img.shields.io/pypi/pyversions/konsole-pal.svg)](https://pypi.org/project/konsole-pal/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/daredoole/konsole-pal/blob/main/LICENSE)
 
 A tiny, low-resource tab companion for terminal AI agents. It shows when Codex
 or Cursor is working, rests when the task is done, calls attention to questions
 and approvals, and returns you to the right tab without scraping terminal output.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/working.gif" alt="Real Konsole window showing the anchored knsole-pal rabbit and pulsing activity sparkle" width="768">
+  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/working.gif" alt="Real Konsole window showing the anchored konsole-pal rabbit and pulsing activity sparkle" width="768">
 </p>
 
 The rabbit stays in one fixed position. Only the equal-width activity symbol
@@ -34,8 +34,8 @@ display containing only the controlled demo. They contain no username, hostname,
 filesystem path, notifications, or device information.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/done.png" alt="Konsole tab showing the resting completion bunny" width="49%">
-  <img src="https://raw.githubusercontent.com/daredoole/knsole-pal/main/docs/images/attention.png" alt="Konsole tab showing the attention bunny for a permission request" width="49%">
+  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/done.png" alt="Konsole tab showing the resting completion bunny" width="49%">
+  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/attention.png" alt="Konsole tab showing the attention bunny for a permission request" width="49%">
 </p>
 
 ## Install in three commands
@@ -44,9 +44,9 @@ Python 3.10 or newer is required. [pipx](https://pipx.pypa.io/) is recommended
 because it installs the CLI in an isolated environment.
 
 ```sh
-pipx install knsole-pal
-knsole-pal hooks install
-knsole-pal doctor
+pipx install konsole-pal
+konsole-pal hooks install
+konsole-pal doctor
 ```
 
 Restart Codex and Cursor after installing the hooks. That is it.
@@ -54,12 +54,12 @@ Restart Codex and Cursor after installing the hooks. That is it.
 Prefer `uv`?
 
 ```sh
-uv tool install knsole-pal
-knsole-pal hooks install
+uv tool install konsole-pal
+konsole-pal hooks install
 ```
 
 For native Konsole control, install whichever Qt D-Bus command your distribution
-provides: `qdbus6`, `qdbus-qt6`, or `qdbus`. Without it, knsole-pal safely
+provides: `qdbus6`, `qdbus-qt6`, or `qdbus`. Without it, konsole-pal safely
 falls back to the standard terminal-title escape sequence.
 
 For sound, it automatically uses the first available player: PipeWire
@@ -72,14 +72,14 @@ The installer preserves unrelated hooks, writes mode-0600 files, and makes a
 
 ```sh
 # Both agents
-knsole-pal hooks install
+konsole-pal hooks install
 
 # Or one agent
-knsole-pal hooks install codex
-knsole-pal hooks install cursor
+konsole-pal hooks install codex
+konsole-pal hooks install cursor
 
 # Confirm the active configuration
-knsole-pal hooks status
+konsole-pal hooks status
 ```
 
 Codex events map as follows:
@@ -93,7 +93,7 @@ Codex events map as follows:
 | `Stop` | Completed, or needs you when the final message is a question |
 
 Cursor's `beforeSubmitPrompt` starts work and `stop` completes it. Example hook
-files are available in [examples](https://github.com/daredoole/knsole-pal/tree/main/examples)
+files are available in [examples](https://github.com/daredoole/konsole-pal/tree/main/examples)
 for users who prefer manual setup.
 
 ## Terminal support
@@ -114,17 +114,17 @@ local GUI window; SSH uses the title plus terminal bell instead.
 Settings are layered from lowest to highest priority:
 
 1. Built-in defaults
-2. User config: `~/.config/knsole-pal/config.toml`
-3. Nearest project config: `.knsole-pal.toml`
-4. `KNSOLE_PAL_*` environment variables
+2. User config: `~/.config/konsole-pal/config.toml`
+3. Nearest project config: `.konsole-pal.toml`
+4. `KONSOLE_PAL_*` environment variables
 5. Command flags
 
 ```sh
-knsole-pal config show
-knsole-pal config set focus attention
-knsole-pal config set volume 0.45
-knsole-pal config set animation static --project
-knsole-pal config reset volume
+konsole-pal config show
+konsole-pal config set focus attention
+konsole-pal config set volume 0.45
+konsole-pal config set animation static --project
+konsole-pal config reset volume
 ```
 
 | Setting | Values | Default |
@@ -142,7 +142,7 @@ their tabs, while normal completions only rest and chime. `animation=static`
 shows one working icon and immediately exits the animator for effectively zero
 idle resource use.
 
-See [examples/config.toml](https://github.com/daredoole/knsole-pal/blob/main/examples/config.toml)
+See [examples/config.toml](https://github.com/daredoole/konsole-pal/blob/main/examples/config.toml)
 for a complete file.
 
 ## Manual use
@@ -150,41 +150,41 @@ for a complete file.
 Wrap any command:
 
 ```sh
-knsole-pal run --agent tests --label "Test suite" -- pytest
+konsole-pal run --agent tests --label "Test suite" -- pytest
 ```
 
 Or update the current tab directly:
 
 ```sh
-knsole-pal set working --agent codex
-knsole-pal set attention --agent codex --focus
-knsole-pal status
-knsole-pal sound done
-knsole-pal sound attention
+konsole-pal set working --agent codex
+konsole-pal set attention --agent codex --focus
+konsole-pal status
+konsole-pal sound done
+konsole-pal sound attention
 ```
 
 ## Maintenance and troubleshooting
 
 ```sh
-knsole-pal doctor
-knsole-pal doctor --repair
-knsole-pal hooks status
-knsole-pal reset
+konsole-pal doctor
+konsole-pal doctor --repair
+konsole-pal hooks status
+konsole-pal reset
 ```
 
-- **No bunny:** run `knsole-pal doctor --repair`, restart the agent, and submit a prompt.
-- **No sound:** run `knsole-pal sound done` and install PipeWire, PulseAudio, or ALSA tools.
-- **Too much tab switching:** run `knsole-pal config set focus attention`.
-- **Prefer no motion:** run `knsole-pal config set animation static`.
-- **Stale title:** run `knsole-pal reset`.
-- **SSH:** install knsole-pal and its hooks on the remote host as well.
+- **No bunny:** run `konsole-pal doctor --repair`, restart the agent, and submit a prompt.
+- **No sound:** run `konsole-pal sound done` and install PipeWire, PulseAudio, or ALSA tools.
+- **Too much tab switching:** run `konsole-pal config set focus attention`.
+- **Prefer no motion:** run `konsole-pal config set animation static`.
+- **Stale title:** run `konsole-pal reset`.
+- **SSH:** install konsole-pal and its hooks on the remote host as well.
 
 `reset` stops the shared animator, restores resting titles, and removes runtime
 state. It does not remove settings or agent hooks.
 
 ## Privacy and security
 
-- Runtime files live under `$XDG_RUNTIME_DIR/knsole-pal` in a mode-0700 directory.
+- Runtime files live under `$XDG_RUNTIME_DIR/konsole-pal` in a mode-0700 directory.
 - State, configuration, generated sounds, hook files, and backups use mode 0600.
 - State contains only a short display label and terminal routing identifiers.
 - Prompts, responses, transcripts, command output, and environment dumps are never stored.
@@ -193,12 +193,12 @@ state. It does not remove settings or agent hooks.
 - Python 3.11+ has no runtime dependencies; Python 3.10 uses only the small
   `tomli` standard-library backport. The package performs no network requests or telemetry.
 
-The `knsole-pal run -- ...` command intentionally executes exactly the local
+The `konsole-pal run -- ...` command intentionally executes exactly the local
 command placed after `--`; it does not interpret it through a shell.
 
-See [SECURITY.md](https://github.com/daredoole/knsole-pal/blob/main/SECURITY.md)
+See [SECURITY.md](https://github.com/daredoole/konsole-pal/blob/main/SECURITY.md)
 for reporting and
-[docs/SECURITY-REVIEW.md](https://github.com/daredoole/knsole-pal/blob/main/docs/SECURITY-REVIEW.md)
+[docs/SECURITY-REVIEW.md](https://github.com/daredoole/konsole-pal/blob/main/docs/SECURITY-REVIEW.md)
 for the release threat model
 and audit results.
 
@@ -215,20 +215,20 @@ Sounds are synthesized once, cached privately by volume, and played asynchronous
 ## Uninstall
 
 ```sh
-knsole-pal reset
-knsole-pal hooks uninstall
-pipx uninstall knsole-pal
+konsole-pal reset
+konsole-pal hooks uninstall
+pipx uninstall konsole-pal
 ```
 
 If installed with uv, replace the last command with
-`uv tool uninstall knsole-pal`. Settings remain in
-`~/.config/knsole-pal/config.toml` until you remove them.
+`uv tool uninstall konsole-pal`. Settings remain in
+`~/.config/konsole-pal/config.toml` until you remove them.
 
 ## Development
 
 ```sh
-git clone https://github.com/daredoole/knsole-pal.git
-cd knsole-pal
+git clone https://github.com/daredoole/konsole-pal.git
+cd konsole-pal
 uv sync --extra dev
 make verify
 ```
@@ -237,9 +237,9 @@ make verify
 when available, bytecode compilation, wheel/sdist builds, and package metadata
 validation. CI repeats the suite on Python 3.10 through 3.14.
 
-Please read [CONTRIBUTING.md](https://github.com/daredoole/knsole-pal/blob/main/CONTRIBUTING.md),
-the [changelog](https://github.com/daredoole/knsole-pal/blob/main/CHANGELOG.md),
-and the [MIT license](https://github.com/daredoole/knsole-pal/blob/main/LICENSE).
+Please read [CONTRIBUTING.md](https://github.com/daredoole/konsole-pal/blob/main/CONTRIBUTING.md),
+the [changelog](https://github.com/daredoole/konsole-pal/blob/main/CHANGELOG.md),
+and the [MIT license](https://github.com/daredoole/konsole-pal/blob/main/LICENSE).
 
 ## Design limits
 

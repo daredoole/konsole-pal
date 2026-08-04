@@ -5,7 +5,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
-from knsole_pal.core import (
+from konsole_pal.core import (
     FINAL_STATE_TTL,
     WORKING_STATE_TTL,
     KonsoleTarget,
@@ -45,10 +45,10 @@ class AnimatorFocusTests(unittest.TestCase):
 
     def run_animator(self, path):
         with (
-            patch("knsole_pal.core.os.nice"),
-            patch("knsole_pal.core.time.sleep"),
-            patch("knsole_pal.core.set_title") as titles,
-            patch("knsole_pal.core.focus_tab") as focuses,
+            patch("konsole_pal.core.os.nice"),
+            patch("konsole_pal.core.time.sleep"),
+            patch("konsole_pal.core.set_title") as titles,
+            patch("konsole_pal.core.focus_tab") as focuses,
         ):
             self.assertEqual(animate(path, interval=0), 0)
         return titles, focuses
@@ -142,11 +142,11 @@ class AnimatorFocusTests(unittest.TestCase):
     def test_exit_recheck_prevents_lost_work_wakeup(self):
         path = self.state(13, "done", focus=False)
         with (
-            patch("knsole_pal.core.os.nice"),
-            patch("knsole_pal.core.time.sleep"),
-            patch("knsole_pal.core.set_title"),
+            patch("konsole_pal.core.os.nice"),
+            patch("konsole_pal.core.time.sleep"),
+            patch("konsole_pal.core.set_title"),
             patch(
-                "knsole_pal.core._directory_has_animated_state",
+                "konsole_pal.core._directory_has_animated_state",
                 side_effect=(True, False),
             ) as recheck,
         ):

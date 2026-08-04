@@ -336,7 +336,7 @@ wheels = [
 ]
 
 [[package]]
-name = "knsole-pal"
+name = "konsole-pal"
 version = "0.7.0"
 source = { editable = "." }
 dependencies = [

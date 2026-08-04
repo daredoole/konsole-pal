@@ -14,7 +14,7 @@ suggested mitigation. You should receive an acknowledgement within seven days.
 
 ## Security boundaries
 
-`knsole-pal` stores only short agent labels and terminal routing targets in a
+`konsole-pal` stores only short agent labels and terminal routing targets in a
 mode-0700 runtime directory with mode-0600 files. It never stores prompts,
 responses, transcripts, or command output and performs no network requests.
 

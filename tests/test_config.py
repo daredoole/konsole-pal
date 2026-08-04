@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knsole_pal.config import (
+from konsole_pal.config import (
     ConfigError,
     Settings,
     load_settings,
@@ -32,10 +32,10 @@ class ConfigTests(unittest.TestCase):
     def test_precedence_is_defaults_user_project_environment_override(self):
         write_setting(user_config_path(self.env), "volume", "0.2")
         write_setting(user_config_path(self.env), "focus", "never")
-        write_setting(self.project / ".knsole-pal.toml", "volume", "0.4")
+        write_setting(self.project / ".konsole-pal.toml", "volume", "0.4")
         settings = load_settings(
             cwd=self.nested,
-            env={**self.env, "KNSOLE_PAL_VOLUME": "0.6"},
+            env={**self.env, "KONSOLE_PAL_VOLUME": "0.6"},
             overrides={"volume": "0.8"},
         )
         self.assertEqual(settings.volume, 0.8)
@@ -69,7 +69,7 @@ class ConfigTests(unittest.TestCase):
             write_setting(path, "nope", "true")
 
     def test_project_discovery_stops_at_repository_root(self):
-        outside = self.root / ".knsole-pal.toml"
+        outside = self.root / ".konsole-pal.toml"
         write_setting(outside, "focus", "never")
         self.assertEqual(load_settings(cwd=self.nested, env=self.env).focus, "all")
 

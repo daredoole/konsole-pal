@@ -23,15 +23,15 @@ def find_audio_player() -> str | None:
 
 
 def sounds_enabled(env: Mapping[str, str] = os.environ) -> bool:
-    value = env.get("KNSOLE_PAL_SOUND", "1").strip().lower()
+    value = env.get("KONSOLE_PAL_SOUND", "1").strip().lower()
     return value not in {"0", "false", "no", "off"}
 
 
 def sound_dir(env: Mapping[str, str] = os.environ) -> Path:
     base = env.get("XDG_RUNTIME_DIR")
     if base:
-        return Path(base) / "knsole-pal" / "sounds"
-    return Path(tempfile.gettempdir()) / f"knsole-pal-{os.getuid()}" / "sounds"
+        return Path(base) / "konsole-pal" / "sounds"
+    return Path(tempfile.gettempdir()) / f"konsole-pal-{os.getuid()}" / "sounds"
 
 
 def _envelope(position: float, attack: float = 0.08, release: float = 0.42) -> float:

@@ -54,4 +54,4 @@ jobs:
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: zellij
-      - run: KNSOLE_PAL_INTEGRATION=1 uv run python -m unittest tests.test_multiplexer_integration -v
+      - run: KONSOLE_PAL_INTEGRATION=1 uv run python -m unittest tests.test_multiplexer_integration -v

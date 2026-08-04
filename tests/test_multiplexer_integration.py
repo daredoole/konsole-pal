@@ -9,9 +9,9 @@ import unittest
 import uuid
 from pathlib import Path
 
-from knsole_pal.core import KonsoleTarget, focus_tab, set_title
+from konsole_pal.core import KonsoleTarget, focus_tab, set_title
 
-RUN_INTEGRATION = os.environ.get("KNSOLE_PAL_INTEGRATION") == "1"
+RUN_INTEGRATION = os.environ.get("KONSOLE_PAL_INTEGRATION") == "1"
 
 
 def run(command, *, timeout=10):
@@ -25,7 +25,7 @@ def run(command, *, timeout=10):
     ).stdout.strip()
 
 
-@unittest.skipUnless(RUN_INTEGRATION, "set KNSOLE_PAL_INTEGRATION=1")
+@unittest.skipUnless(RUN_INTEGRATION, "set KONSOLE_PAL_INTEGRATION=1")
 class MultiplexerIntegrationTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("tmux"), "tmux is not installed")
     def test_real_tmux_title_and_focus_handoff(self):

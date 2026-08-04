@@ -3,7 +3,7 @@ import string
 import unicodedata
 import unittest
 
-from knsole_pal.core import (
+from konsole_pal.core import (
     FINAL_ICONS,
     LABEL_MAX_CELLS,
     WORKING_FRAMES,

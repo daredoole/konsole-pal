@@ -4,14 +4,14 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "knsole-pal hook --agent codex" }
+          { "type": "command", "command": "konsole-pal hook --agent codex" }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "knsole-pal hook --agent codex" }
+          { "type": "command", "command": "konsole-pal hook --agent codex" }
         ]
       }
     ],
@@ -19,21 +19,21 @@
       {
         "matcher": "request_user_input|AskUserQuestion",
         "hooks": [
-          { "type": "command", "command": "knsole-pal hook --agent codex" }
+          { "type": "command", "command": "konsole-pal hook --agent codex" }
         ]
       }
     ],
     "PermissionRequest": [
       {
         "hooks": [
-          { "type": "command", "command": "knsole-pal hook --agent codex" }
+          { "type": "command", "command": "konsole-pal hook --agent codex" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "knsole-pal hook --agent codex" }
+          { "type": "command", "command": "konsole-pal hook --agent codex" }
         ]
       }
     ]
