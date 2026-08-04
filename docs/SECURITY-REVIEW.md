@@ -21,6 +21,11 @@ dependencies; Python 3.10 uses only the `tomli` standard-library backport.
 Generated sounds and state remain in the user's private runtime directory.
 Notifications contain a generic state plus the already-visible, width-limited
 tab label; hook payload messages and transcript paths are discarded.
+The interactive watch view expands only that sanitized label and routing metadata.
+Its direct actions focus an existing target, acknowledge one selected unread state,
+or replace only the selected display label; they never execute agent-generated text.
+An optional `KONSOLE_PAL_TASK` value is explicit user-provided display text; task
+descriptions are never inferred from prompts, responses, or hook messages.
 
 ## Controls
 
@@ -33,8 +38,8 @@ tab label; hook payload messages and transcript paths are discarded.
   notification command. Neither adapter reads transcripts or prompt text.
 - Custom themes are inert JSON. Names, control characters, completeness, and
   equal terminal-cell widths are validated before an atomic private install.
-- Terminal labels remove control characters, normalize whitespace, and enforce a
-  terminal-cell limit before reaching D-Bus or OSC.
+- Terminal labels remove ANSI escape sequences and control characters, normalize
+  whitespace, and enforce a terminal-cell limit before reaching D-Bus or OSC.
 - OSC output strips escape and bell characters and writes only to `/dev/tty` or a
   validated `/dev/pts/*` path.
 - External processes use explicit argument arrays without a shell, bounded

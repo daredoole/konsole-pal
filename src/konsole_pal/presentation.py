@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import unicodedata
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TextIO
@@ -21,6 +22,30 @@ ANSI_COLORS = {
     "marigold": "33",
     "sakura": "35",
 }
+
+
+def cell_width(text: str) -> int:
+    width = 0
+    for char in text:
+        if unicodedata.combining(char):
+            continue
+        width += 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
+    return width
+
+
+def truncate(text: str, max_cells: int) -> str:
+    if max_cells < 1:
+        return ""
+    if cell_width(text) <= max_cells:
+        return text
+    if max_cells == 1:
+        return "…"
+    result = ""
+    for char in text:
+        if cell_width(result + char + "…") > max_cells:
+            break
+        result += char
+    return result.rstrip() + "…"
 
 
 def supports_color(
@@ -123,8 +148,11 @@ def row(
         "info": "moon",
         "idle": "moon",
     }
-    marker = paint(glyph(state, stream), colors[state], bold=True, stream=stream, env=env)
-    name = paint(label.ljust(width), "moon", dim=True, stream=stream, env=env)
+    marker = paint(
+        glyph(state, stream), colors[state], bold=True, stream=stream, env=env
+    )
+    padding = " " * max(0, width - cell_width(label))
+    name = paint(label + padding, "moon", dim=True, stream=stream, env=env)
     return f"  {marker} {name} {value}"
 
 
@@ -134,7 +162,7 @@ def rows(
     stream: TextIO = sys.stdout,
     env: Mapping[str, str] = os.environ,
 ) -> str:
-    width = max((len(label) for label, _, _ in values), default=0)
+    width = max((cell_width(label) for label, _, _ in values), default=0)
     return "\n".join(
         row(label, value, state=state, width=width, stream=stream, env=env)
         for label, value, state in values
@@ -155,7 +183,9 @@ def message(
         "info": "moon",
         "idle": "moon",
     }
-    marker = paint(glyph(state, stream), colors[state], bold=True, stream=stream, env=env)
+    marker = paint(
+        glyph(state, stream), colors[state], bold=True, stream=stream, env=env
+    )
     return f"  {marker} {text}"
 
 

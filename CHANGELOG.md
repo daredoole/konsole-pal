@@ -2,8 +2,10 @@
 
 ## 1.0.0 - 2026-08-04
 
-- Add a durable attention inbox with deterministic `next`, `ack`, and on-demand
-  `watch` commands; focus succeeds before unread state is cleared.
+- Add a durable attention inbox with deterministic `next` and `ack`, plus an
+  interactive unified `watch` view with expandable, privacy-safe task details,
+  direct focus and acknowledge actions, editable display labels, and filtering;
+  focus succeeds before unread state is cleared.
 - Add one normalized event contract and safe installers for Codex, Cursor,
   Claude Code, Gemini CLI, OpenCode, Copilot CLI, and Aider.
 - Add Kitty, WezTerm, and Ghostty detection, focus backends where supported,

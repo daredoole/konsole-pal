@@ -13,6 +13,7 @@ from konsole_pal.core import (
     WORKING_FRAMES,
     KonsoleTarget,
     SessionState,
+    default_label,
     emit_bell,
     emit_osc_title,
     emit_terminal_notification,
@@ -21,6 +22,7 @@ from konsole_pal.core import (
     looks_like_question,
     notify_state,
     read_state,
+    rename_session,
     reset_runtime,
     set_title,
     spawn_animator,
@@ -43,6 +45,15 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.target.session_id, 7)
         self.assertEqual(self.target.key, self.target.key)
         self.assertEqual(len(self.target.key), 16)
+
+    def test_opt_in_task_label_is_sanitized_without_reading_hook_content(self):
+        label = default_label(
+            "codex",
+            {"cwd": "/work/project", "prompt": "must not be retained"},
+            {"KONSOLE_PAL_TASK": "Refactor checkout\x1b[31m\nflow"},
+        )
+        self.assertEqual(label, "Codex · Refactor checkout flow")
+        self.assertNotIn("must not be retained", label)
 
     @patch("konsole_pal.core._discover_zellij_tab", return_value="8")
     def test_zellij_target_uses_stable_pane_and_tab_ids(self, discover):
@@ -243,6 +254,25 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(state.sprite_size, "large")
             self.assertEqual(state.label_max_cells, 12)
             self.assertEqual(state.working_timeout, 120)
+
+    def test_rename_session_sanitizes_label_without_changing_activity_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {"XDG_RUNTIME_DIR": directory}
+            with patch("konsole_pal.core.spawn_animator"):
+                path = update_session(
+                    "working",
+                    agent="codex",
+                    label="Old task",
+                    target=self.target,
+                    env=env,
+                )
+            original_time = read_state(path).updated_at
+            with patch("konsole_pal.core.set_title", return_value=True) as set_title_mock:
+                self.assertTrue(rename_session(path, "Release\x1b[31m\npolish"))
+            renamed = read_state(path)
+            self.assertEqual(renamed.label, "Codex · Release polish")
+            self.assertEqual(renamed.updated_at, original_time)
+            set_title_mock.assert_called_once()
 
     def test_final_states_play_the_matching_sound(self):
         with tempfile.TemporaryDirectory() as directory:
