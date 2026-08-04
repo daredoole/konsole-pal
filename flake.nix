@@ -28,5 +28,8 @@
             };
           };
         });
+      checks = eachSystem (system: {
+        package = self.packages.${system}.default;
+      });
     };
 }

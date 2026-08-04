@@ -1,5 +1,5 @@
 include CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md SECURITY.md
-include Makefile uv.lock flake.nix
+include Makefile uv.lock flake.nix flake.lock
 recursive-include examples *.json *.toml
 recursive-include docs *.md *.png *.gif
 recursive-include packaging *.md

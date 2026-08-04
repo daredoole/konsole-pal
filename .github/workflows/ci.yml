@@ -8,6 +8,13 @@ permissions:
   contents: read
 
 jobs:
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+      - run: nix flake check --print-build-logs
+
   security:
     runs-on: ubuntu-latest
     steps:
@@ -38,10 +45,10 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
-      - run: uv run --extra dev ruff check src tests scripts
-      - run: uv run --extra dev python -m unittest discover -s tests -v
+      - run: uv run --locked --extra dev ruff check src tests scripts
+      - run: uv run --locked --extra dev python -m unittest discover -s tests -v
       - run: uv build
-      - run: uv run --extra dev twine check dist/*
+      - run: uv run --locked --extra dev twine check dist/*
 
   release-assets:
     runs-on: ubuntu-latest
@@ -51,7 +58,7 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv build --clear
-      - run: uv run python scripts/render-packages.py
+      - run: uv run --locked python scripts/render-packages.py
       - run: ruby -c packaging/generated/konsole-pal.rb
       - run: bash -n packaging/generated/PKGBUILD
       - run: uv venv /tmp/konsole-pal-wheel-smoke
@@ -69,4 +76,4 @@ jobs:
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: zellij
-      - run: KONSOLE_PAL_INTEGRATION=1 uv run python -m unittest tests.test_multiplexer_integration -v
+      - run: KONSOLE_PAL_INTEGRATION=1 uv run --locked python -m unittest tests.test_multiplexer_integration -v
