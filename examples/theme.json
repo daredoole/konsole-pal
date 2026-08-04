@@ -1,0 +1,29 @@
+{
+  "name": "burrow",
+  "description": "A compact ASCII rabbit theme",
+  "frames": {
+    "small": ["r>*", "r>+"],
+    "medium": ["(\\_/)*", "(\\_/)+"],
+    "large": ["/(\\_/)*", "/(\\_/)+"]
+  },
+  "finals": {
+    "small": {
+      "idle": "r>z",
+      "done": "r>z",
+      "attention": "r>!",
+      "error": "r>x"
+    },
+    "medium": {
+      "idle": "(\\_/)z",
+      "done": "(\\_/)z",
+      "attention": "(\\_/)!",
+      "error": "(\\_/)x"
+    },
+    "large": {
+      "idle": "/(\\_/)z",
+      "done": "/(\\_/)z",
+      "attention": "/(\\_/)!",
+      "error": "/(\\_/)x"
+    }
+  }
+}

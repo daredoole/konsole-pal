@@ -19,41 +19,19 @@ from typing import Any
 
 from .config import Settings
 from .sounds import play_sound
+from .themes import BUILTIN_THEMES, load_theme
 
 # Every size has one fixed terminal-cell width across every frame and state.
 # This changes the sprite's footprint without asking Konsole to resize its font,
 # which would affect every tab and cannot be scoped to one title safely.
-SPRITE_FRAMES = {
-    "small": ("🐇*", "🐇+"),
-    "medium": ("🐇✨", "🐇⭐"),
-    "large": ("🐇✨✨", "🐇⭐⭐"),
-}
-SPRITE_FINAL_ICONS = {
-    "small": {
-        "idle": "🐇z",
-        "done": "🐇z",
-        "attention": "🐇!",
-        "error": "🐇×",
-    },
-    "medium": {
-        "idle": "🐇💤",
-        "done": "🐇💤",
-        "attention": "🐇❗",
-        "error": "🐇💥",
-    },
-    "large": {
-        "idle": "🐇💤💤",
-        "done": "🐇💤💤",
-        "attention": "🐇❗❗",
-        "error": "🐇💥💥",
-    },
-}
+SPRITE_FRAMES = BUILTIN_THEMES["rabbit"].frames
+SPRITE_FINAL_ICONS = BUILTIN_THEMES["rabbit"].finals
 WORKING_FRAMES = SPRITE_FRAMES["medium"]
 FINAL_ICONS = SPRITE_FINAL_ICONS["medium"]
 VALID_STATES = frozenset(("working", *FINAL_ICONS))
 LABEL_MAX_CELLS = 26
 FINAL_STATE_TTL = 7 * 24 * 60 * 60
-WORKING_STATE_TTL = 24 * 60 * 60
+WORKING_STATE_TTL = 4 * 60 * 60
 FOCUS_EVENT_TTL = 30.0
 FOCUS_PRIORITY = {"idle": 0, "done": 1, "error": 2, "attention": 3}
 
@@ -68,6 +46,7 @@ class KonsoleTarget:
     multiplexer_session: str = ""
     pane_id: str = ""
     tab_id: str = ""
+    remote: bool = False
 
     @property
     def session_id(self) -> int | None:
@@ -95,8 +74,10 @@ class SessionState:
     animation: str = "pulse"
     animation_interval: float = 0.85
     sprite_size: str = "medium"
+    theme: str = "rabbit"
     label_max_cells: int = LABEL_MAX_CELLS
     working_timeout: float = WORKING_STATE_TTL
+    attention_timeout: float = 86_400.0
 
     def to_json(self) -> dict[str, Any]:
         data = asdict(self)
@@ -116,8 +97,10 @@ class SessionState:
             animation=str(data.get("animation", "pulse")),
             animation_interval=float(data.get("animation_interval", 0.85)),
             sprite_size=str(data.get("sprite_size", "medium")),
+            theme=str(data.get("theme", "rabbit")),
             label_max_cells=int(data.get("label_max_cells", LABEL_MAX_CELLS)),
             working_timeout=float(data.get("working_timeout", WORKING_STATE_TTL)),
+            attention_timeout=float(data.get("attention_timeout", 86_400.0)),
         )
 
 
@@ -176,6 +159,8 @@ def _discover_zellij_tab(session: str, pane_id: str) -> str:
 
 
 def target_from_env(env: Mapping[str, str] = os.environ) -> KonsoleTarget | None:
+    tty_path = _controlling_tty_path()
+    remote = bool(env.get("SSH_CONNECTION") or env.get("SSH_TTY"))
     zellij_pane = env.get("ZELLIJ_PANE_ID", "")
     if env.get("ZELLIJ") and zellij_pane:
         session = env.get("ZELLIJ_SESSION_NAME", "")
@@ -187,6 +172,8 @@ def target_from_env(env: Mapping[str, str] = os.environ) -> KonsoleTarget | None
             multiplexer_session=session,
             pane_id=zellij_pane,
             tab_id=_discover_zellij_tab(session, zellij_pane),
+            tty_path=tty_path,
+            remote=remote,
         )
 
     tmux_pane = env.get("TMUX_PANE", "")
@@ -198,6 +185,8 @@ def target_from_env(env: Mapping[str, str] = os.environ) -> KonsoleTarget | None
             backend="tmux",
             multiplexer_session=env["TMUX"].split(",", 1)[0],
             pane_id=tmux_pane,
+            tty_path=tty_path,
+            remote=remote,
         )
 
     session = env.get("KONSOLE_DBUS_SESSION", "")
@@ -206,9 +195,45 @@ def target_from_env(env: Mapping[str, str] = os.environ) -> KonsoleTarget | None
             service=env.get("KONSOLE_DBUS_SERVICE", "org.kde.konsole"),
             session_path=session,
             window_path=env.get("KONSOLE_DBUS_WINDOW", "/Windows/1"),
+            tty_path=tty_path,
+            remote=remote,
         )
 
-    tty_path = _controlling_tty_path()
+    kitty_window = env.get("KITTY_WINDOW_ID", "")
+    if kitty_window and tty_path:
+        return KonsoleTarget(
+            service="",
+            session_path="",
+            window_path="",
+            backend="kitty",
+            tty_path=tty_path,
+            pane_id=kitty_window,
+            remote=remote,
+        )
+
+    wezterm_pane = env.get("WEZTERM_PANE", "")
+    if wezterm_pane and tty_path:
+        return KonsoleTarget(
+            service="",
+            session_path="",
+            window_path="",
+            backend="wezterm",
+            tty_path=tty_path,
+            pane_id=wezterm_pane,
+            remote=remote,
+        )
+
+    term_program = env.get("TERM_PROGRAM", "").lower()
+    if tty_path and (term_program == "ghostty" or env.get("GHOSTTY_RESOURCES_DIR")):
+        return KonsoleTarget(
+            service="",
+            session_path="",
+            window_path="",
+            backend="ghostty",
+            tty_path=tty_path,
+            remote=remote,
+        )
+
     if tty_path and env.get("TERM", "") != "dumb":
         return KonsoleTarget(
             service="",
@@ -216,6 +241,7 @@ def target_from_env(env: Mapping[str, str] = os.environ) -> KonsoleTarget | None
             window_path="",
             backend="osc",
             tty_path=tty_path,
+            remote=remote,
         )
     return None
 
@@ -281,7 +307,12 @@ def _consume_focus(
 
 def _state_is_stale(state: SessionState, mtime_ns: int, now: float) -> bool:
     timestamp = state.updated_at or (mtime_ns / 1_000_000_000)
-    ttl = state.working_timeout if state.state == "working" else FINAL_STATE_TTL
+    if state.state == "working":
+        ttl = state.working_timeout
+    elif state.state in {"attention", "error"}:
+        ttl = state.attention_timeout
+    else:
+        ttl = FINAL_STATE_TTL
     if ttl == 0:
         return False
     return now - timestamp > ttl
@@ -305,6 +336,46 @@ def prune_stale_states(directory: Path, now: float | None = None) -> int:
         except (OSError, ValueError, KeyError, json.JSONDecodeError):
             continue
     return removed
+
+
+def attention_states(
+    env: Mapping[str, str] = os.environ,
+    *,
+    now: float | None = None,
+) -> list[tuple[Path, SessionState]]:
+    directory = runtime_dir(env)
+    current_time = time.time() if now is None else now
+    items: list[tuple[Path, SessionState]] = []
+    for path in directory.glob("*.json") if directory.exists() else []:
+        try:
+            state = read_state(path)
+            if state.state not in {"attention", "error"}:
+                continue
+            timestamp = state.updated_at or path.stat().st_mtime
+            if state.attention_timeout and current_time - timestamp > state.attention_timeout:
+                continue
+            items.append((path, state))
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            continue
+    return sorted(items, key=lambda item: item[1].updated_at, reverse=True)
+
+
+def acknowledge_attention(path: Path, *, activate: bool = False) -> bool:
+    try:
+        with _state_lock(path):
+            state = read_state(path)
+            if state.state not in {"attention", "error"}:
+                return False
+            if activate and not focus_tab(state.target):
+                return False
+            state.state = "idle"
+            state.focus = False
+            state.updated_at = time.time()
+            _write_state_file(path, state)
+            set_title(state.target, title_for(state), persist=True)
+            return True
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return False
 
 
 def find_qdbus() -> str | None:
@@ -366,7 +437,7 @@ def set_title(target: KonsoleTarget, title: str, *, persist: bool = True) -> boo
         command += ["rename-window", "-t", target.pane_id, title]
         return _run_quiet(command)
 
-    if target.backend == "osc":
+    if target.backend in {"osc", "kitty", "wezterm", "ghostty"}:
         return emit_osc_title(title, target.tty_path)
 
     qdbus = find_qdbus()
@@ -411,6 +482,63 @@ def emit_bell(target: KonsoleTarget) -> bool:
     return _write_tty(b"\x07", target.tty_path)
 
 
+def emit_terminal_notification(
+    target: KonsoleTarget,
+    title: str,
+    body: str,
+) -> bool:
+    safe_title = sanitize_label(title, 48)
+    safe_body = sanitize_label(body, 80)
+    if target.backend == "kitty":
+        identifier = f"konsole-pal-{target.key}"
+        payload = (
+            f"\x1b]99;i={identifier}:p=title:a=focus:o=unfocused;{safe_title}\x1b\\"
+            f"\x1b]99;i={identifier}:p=body;{safe_body}\x1b\\"
+        ).encode()
+    else:
+        payload = f"\x1b]9;{safe_title}: {safe_body}\x1b\\".encode()
+    return _write_tty(payload, target.tty_path)
+
+
+def emit_desktop_notification(title: str, body: str) -> bool:
+    notifier = shutil.which("notify-send")
+    if not notifier:
+        return False
+    return _run_quiet(
+        [
+            notifier,
+            "--app-name=Konsole Pal",
+            "--",
+            sanitize_label(title, 48),
+            sanitize_label(body, 80),
+        ]
+    )
+
+
+def notify_state(
+    target: KonsoleTarget,
+    state_name: str,
+    label: str,
+    mode: str,
+) -> bool:
+    if mode == "off":
+        return False
+    title = {
+        "done": "Task complete",
+        "attention": "Agent needs you",
+        "error": "Agent stopped with an error",
+    }.get(state_name, "Agent update")
+    if mode == "bell":
+        return emit_bell(target)
+    if mode == "terminal":
+        return emit_terminal_notification(target, title, label)
+    if mode == "desktop":
+        return emit_desktop_notification(title, label)
+    if target.remote or target.backend in {"kitty", "wezterm", "ghostty", "osc"}:
+        return emit_terminal_notification(target, title, label) or emit_bell(target)
+    return emit_desktop_notification(title, label) or emit_bell(target)
+
+
 def focus_tab(target: KonsoleTarget) -> bool:
     if target.backend == "zellij":
         zellij = shutil.which("zellij")
@@ -432,6 +560,22 @@ def focus_tab(target: KonsoleTarget) -> bool:
         selected = _run_quiet(command + ["select-window", "-t", target.pane_id])
         focused = _run_quiet(command + ["select-pane", "-t", target.pane_id])
         return selected and focused
+
+    if target.backend == "kitty":
+        kitten = shutil.which("kitten")
+        if not kitten or not target.pane_id:
+            return False
+        return _run_quiet(
+            [kitten, "@", "focus-window", "--match", f"id:{target.pane_id}"]
+        )
+
+    if target.backend == "wezterm":
+        wezterm = shutil.which("wezterm")
+        if not wezterm or not target.pane_id:
+            return False
+        return _run_quiet(
+            [wezterm, "cli", "activate-pane", "--pane-id", target.pane_id]
+        )
 
     if target.backend != "konsole":
         return False
@@ -477,11 +621,15 @@ def sanitize_label(label: str, max_cells: int = LABEL_MAX_CELLS) -> str:
 
 
 def title_for(state: SessionState, frame: int = 0) -> str:
-    size = state.sprite_size if state.sprite_size in SPRITE_FRAMES else "medium"
+    try:
+        theme = load_theme(state.theme)
+    except ValueError:
+        theme = BUILTIN_THEMES["rabbit"]
+    size = state.sprite_size if state.sprite_size in theme.frames else "medium"
     icon = (
-        SPRITE_FRAMES[size][frame % len(SPRITE_FRAMES[size])]
+        theme.frames[size][frame % len(theme.frames[size])]
         if state.state == "working"
-        else SPRITE_FINAL_ICONS[size][state.state]
+        else theme.finals[size][state.state]
     )
     return f"{icon} {sanitize_label(state.label, state.label_max_cells)}"
 
@@ -503,28 +651,71 @@ def looks_like_question(message: str | None) -> bool:
 
 
 def event_to_state(agent: str, payload: Mapping[str, Any]) -> tuple[str, bool] | None:
-    event = str(payload.get("hook_event_name") or payload.get("type") or "")
+    event_data = payload.get("event")
+    nested_event = event_data.get("type") if isinstance(event_data, Mapping) else ""
+    event = str(
+        payload.get("hook_event_name")
+        or payload.get("type")
+        or nested_event
+        or ""
+    )
     normalized = event.replace("-", "").replace("_", "").lower()
+    normalized = normalized.replace(".", "")
 
-    if normalized in {"userpromptsubmit", "beforesubmitprompt", "turnstarted"}:
+    if normalized in {
+        "userpromptsubmit",
+        "userpromptsubmitted",
+        "beforesubmitprompt",
+        "turnstarted",
+        "beforeagent",
+        "sessionbusy",
+    }:
         return "working", False
     if normalized == "pretooluse":
         tool_name = str(payload.get("tool_name") or "").replace("-", "").replace("_", "").lower()
         if tool_name in {"requestuserinput", "askuserquestion"}:
             return "attention", True
         return None
-    if normalized in {"permissionrequest", "approvalrequested", "notification"}:
+    notification_type = str(
+        payload.get("notification_type") or payload.get("notificationType") or ""
+    ).replace("_", "").lower()
+    if normalized in {
+        "permissionrequest",
+        "permissionasked",
+        "approvalrequested",
+        "questionasked",
+    } or (
+        normalized == "notification"
+        and notification_type
+        in {"toolpermission", "permissionprompt", "idleprompt"}
+    ):
         return "attention", True
     if normalized in {"sessionstart"}:
         return "idle", False
     if normalized in {"sessionend"}:
         return "idle", False
-    if normalized in {"stop", "agentturncomplete", "turncompleted"}:
+    if normalized in {
+        "stop",
+        "agentstop",
+        "agentturncomplete",
+        "turncompleted",
+        "afteragent",
+        "sessionidle",
+        "taskcompleted",
+    }:
         last_message = payload.get("last_assistant_message") or payload.get(
             "last-assistant-message"
         )
         state = "attention" if looks_like_question(str(last_message or "")) else "done"
         return state, True
+    if normalized in {
+        "stopfailure",
+        "erroroccurred",
+        "agenterror",
+        "sessionerror",
+        "toolerror",
+    }:
+        return "error", True
     return None
 
 
@@ -532,7 +723,15 @@ def default_label(agent: str, payload: Mapping[str, Any] | None = None) -> str:
     payload = payload or {}
     cwd = str(payload.get("cwd") or os.getcwd())
     project = Path(cwd).name or "terminal"
-    pretty_agent = {"codex": "Codex", "cursor": "Cursor"}.get(agent, agent.title())
+    pretty_agent = {
+        "codex": "Codex",
+        "cursor": "Cursor",
+        "claude": "Claude",
+        "gemini": "Gemini",
+        "opencode": "OpenCode",
+        "aider": "Aider",
+        "copilot": "Copilot",
+    }.get(agent, agent.title())
     return f"{pretty_agent} · {project}"
 
 
@@ -680,19 +879,27 @@ def update_session(
         animation=settings.animation,
         animation_interval=settings.animation_interval,
         sprite_size=settings.sprite_size,
+        theme=settings.theme,
         label_max_cells=settings.label_max_cells,
         working_timeout=settings.working_timeout,
+        attention_timeout=settings.attention_timeout,
     )
     path = write_state(state, env)
-    sound_enabled = settings.sound if sound is None else sound
+    quiet = settings.is_quiet()
+    sound_enabled = (settings.sound if sound is None else sound) and not quiet
     if sound_enabled and state_name in {"done", "attention", "error"}:
-        play_sound(
-            "done" if state_name == "done" else "attention",
-            env,
-            volume=settings.volume,
-        )
-        if target.backend == "osc":
-            emit_bell(target)
+        sound_kind = "done" if state_name == "done" else "attention"
+        if settings.sound_theme == "soft":
+            play_sound(sound_kind, env, volume=settings.volume)
+        else:
+            play_sound(
+                sound_kind,
+                env,
+                volume=settings.volume,
+                theme=settings.sound_theme,
+            )
+    if not quiet and state_name in {"done", "attention", "error"}:
+        notify_state(target, state_name, label, settings.notification)
     spawn_animator(path)
     return path
 
@@ -806,7 +1013,7 @@ def animate(path: Path, interval: float | None = None) -> int:
 
             if has_working_tab:
                 idle_rounds = 0
-                frame = (frame + 1) % len(WORKING_FRAMES)
+                frame = (frame + 1) % 1024
             else:
                 idle_rounds += 1
                 if idle_rounds >= 2:

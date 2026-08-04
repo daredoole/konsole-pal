@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.0 - 2026-08-04
+
+- Add a durable attention inbox with deterministic `next`, `ack`, and on-demand
+  `watch` commands; focus succeeds before unread state is cleared.
+- Add one normalized event contract and safe installers for Codex, Cursor,
+  Claude Code, Gemini CLI, OpenCode, Copilot CLI, and Aider.
+- Add Kitty, WezTerm, and Ghostty detection, focus backends where supported,
+  clickable terminal notifications, SSH propagation, and local desktop fallback.
+- Add minimal, balanced, and playful presets; per-agent/project policy; quiet
+  hours; attention expiry; notification selection; and three sound themes.
+- Add validated rabbit, ASCII, monochrome, and data-only custom visual themes.
+- Add a native Nix package and deterministic checksum-pinned Homebrew/AUR asset
+  generation to signed release automation.
+- Preserve the single low-frequency worker, fixed-width visual contract,
+  private atomic state, local-only operation, and transcript-free data model.
+
 ## 0.8.0 - 2026-08-03
 
 - Add a dependency-free, color-aware CLI presentation system with a distinctive

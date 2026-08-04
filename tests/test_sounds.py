@@ -59,6 +59,21 @@ class SoundTests(unittest.TestCase):
         self.assertFalse(play_sound("done", {"KONSOLE_PAL_SOUND": "off"}))
         find.assert_not_called()
 
+    def test_arcade_theme_has_a_distinct_private_cache_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env = {"XDG_RUNTIME_DIR": directory}
+            soft = sound_path("attention", env)
+            arcade = sound_path("attention", env, theme="arcade")
+
+            self.assertNotEqual(soft, arcade)
+            self.assertIn("arcade", arcade.name)
+            self.assertEqual(arcade.stat().st_mode & 0o777, 0o600)
+
+    @patch("konsole_pal.sounds.find_audio_player")
+    def test_silent_theme_never_starts_a_player(self, find):
+        self.assertFalse(play_sound("done", theme="silent"))
+        find.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

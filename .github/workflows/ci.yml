@@ -22,7 +22,7 @@ jobs:
       - name: Secret scan
         run: >-
           uvx detect-secrets scan --all-files
-          --exclude-files '(^|/)(\.git|\.venv|build|dist|graphify-out|\.pytest_cache|\.ruff_cache)/'
+          --exclude-files '(^|/)(\.git|\.venv|build|dist|graphify-out|packaging/generated|\.pytest_cache|\.ruff_cache)/'
           | python -c 'import json, sys; data=json.load(sys.stdin); findings=sum(map(len, data["results"].values())); print(f"secret findings: {findings}"); raise SystemExit(findings != 0)'
       - name: Python 3.10 backport dependency audit
         run: uvx --with tomli pip-audit --local --skip-editable
@@ -38,10 +38,25 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
-      - run: uv run --extra dev ruff check src tests
+      - run: uv run --extra dev ruff check src tests scripts
       - run: uv run --extra dev python -m unittest discover -s tests -v
       - run: uv build
       - run: uv run --extra dev twine check dist/*
+
+  release-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+      - run: uv build --clear
+      - run: uv run python scripts/render-packages.py
+      - run: ruby -c packaging/generated/konsole-pal.rb
+      - run: bash -n packaging/generated/PKGBUILD
+      - run: uv venv /tmp/konsole-pal-wheel-smoke
+      - run: uv pip install --python /tmp/konsole-pal-wheel-smoke/bin/python dist/*.whl
+      - run: /tmp/konsole-pal-wheel-smoke/bin/konsole-pal --version
 
   multiplexers:
     runs-on: ubuntu-latest

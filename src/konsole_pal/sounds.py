@@ -12,6 +12,7 @@ from pathlib import Path
 
 SAMPLE_RATE = 44_100
 SOUND_KINDS = ("done", "attention")
+SOUND_THEMES = ("soft", "arcade", "silent")
 
 
 def find_audio_player() -> str | None:
@@ -83,16 +84,38 @@ def _attention_samples() -> list[float]:
     return samples
 
 
-def synthesize_sound(kind: str, path: Path, volume: float = 1.0) -> Path:
+def _arcade_samples(kind: str) -> list[float]:
+    notes = (523.25, 659.25, 783.99) if kind == "done" else (740.0, 520.0)
+    note_seconds = 0.095 if kind == "done" else 0.14
+    samples: list[float] = []
+    for frequency in notes:
+        count = int(SAMPLE_RATE * note_seconds)
+        for index in range(count):
+            position = index / max(1, count - 1)
+            phase = 2.0 * math.pi * frequency * (index / SAMPLE_RATE)
+            square = 1.0 if math.sin(phase) >= 0 else -1.0
+            samples.append(0.14 * _envelope(position, 0.03, 0.3) * square)
+    return samples
+
+
+def synthesize_sound(
+    kind: str,
+    path: Path,
+    volume: float = 1.0,
+    *,
+    theme: str = "soft",
+) -> Path:
     generators: dict[str, Callable[[], list[float]]] = {
         "done": _completion_samples,
         "attention": _attention_samples,
     }
     if kind not in generators:
         raise ValueError(f"unknown sound: {kind}")
+    if theme not in SOUND_THEMES or theme == "silent":
+        raise ValueError(f"unknown or silent sound theme: {theme}")
     if not 0.0 <= volume <= 1.0:
         raise ValueError("volume must be between 0 and 1")
-    samples = generators[kind]()
+    samples = _arcade_samples(kind) if theme == "arcade" else generators[kind]()
     peak = max(1.0, max(abs(sample) for sample in samples))
     pcm = b"".join(
         struct.pack("<h", int(max(-1.0, min(1.0, sample / peak)) * volume * 32767))
@@ -114,13 +137,21 @@ def sound_path(
     kind: str,
     env: Mapping[str, str] = os.environ,
     volume: float = 1.0,
+    theme: str = "soft",
 ) -> Path:
     if kind not in SOUND_KINDS:
         raise ValueError(f"unknown sound: {kind}")
     volume_key = round(volume * 100)
-    path = sound_dir(env) / f"{kind}-v2-{volume_key:03d}.wav"
+    if theme not in SOUND_THEMES or theme == "silent":
+        raise ValueError(f"unknown or silent sound theme: {theme}")
+    filename = (
+        f"{kind}-v2-{volume_key:03d}.wav"
+        if theme == "soft"
+        else f"{kind}-{theme}-v3-{volume_key:03d}.wav"
+    )
+    path = sound_dir(env) / filename
     if not path.exists():
-        synthesize_sound(kind, path, volume)
+        synthesize_sound(kind, path, volume, theme=theme)
     return path
 
 
@@ -129,15 +160,16 @@ def play_sound(
     env: Mapping[str, str] = os.environ,
     *,
     volume: float = 1.0,
+    theme: str = "soft",
 ) -> bool:
-    if not sounds_enabled(env):
+    if not sounds_enabled(env) or theme == "silent":
         return False
     player = find_audio_player()
     if not player:
         return False
     try:
         subprocess.Popen(  # nosec B603
-            [player, str(sound_path(kind, env, volume))],
+            [player, str(sound_path(kind, env, volume, theme))],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

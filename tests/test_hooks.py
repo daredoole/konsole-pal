@@ -1,9 +1,12 @@
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 from konsole_pal.hooks import (
+    AGENTS,
     HookConfigError,
     hook_path,
     hooks_status,
@@ -49,18 +52,23 @@ class HookManagerTests(unittest.TestCase):
         install_hooks(
             ["codex", "cursor"], home=self.home, executable="/bin/konsole-pal"
         )
-        statuses = hooks_status(home=self.home)
+        statuses = hooks_status(["codex", "cursor"], home=self.home)
         self.assertTrue(all(item.valid and item.installed and item.private for item in statuses))
 
         cursor_path = hook_path("cursor", self.home)
         cursor_data = json.loads(cursor_path.read_text(encoding="utf-8"))
         cursor_data["hooks"]["stop"].append({"command": "keep-me"})
         cursor_path.write_text(json.dumps(cursor_data), encoding="utf-8")
-        changed = uninstall_hooks(home=self.home)
+        changed = uninstall_hooks(["codex", "cursor"], home=self.home)
         self.assertEqual(set(changed), {hook_path("codex", self.home), cursor_path})
         remaining = json.loads(cursor_path.read_text(encoding="utf-8"))
         self.assertEqual(remaining["hooks"]["stop"], [{"command": "keep-me"}])
-        self.assertTrue(all(not item.installed for item in hooks_status(home=self.home)))
+        self.assertTrue(
+            all(
+                not item.installed
+                for item in hooks_status(["codex", "cursor"], home=self.home)
+            )
+        )
 
     def test_install_replaces_legacy_misspelled_hook(self):
         path = hook_path("codex", self.home)
@@ -105,6 +113,55 @@ class HookManagerTests(unittest.TestCase):
         )
         self.assertEqual(path.with_suffix(".json.bak").read_text(), "{broken")
         self.assertTrue(hooks_status(["cursor"], home=self.home)[0].installed)
+
+    def test_all_supported_agent_adapters_install_idempotently(self):
+        changed = install_hooks(
+            AGENTS,
+            home=self.home,
+            executable="/bin/konsole-pal",
+        )
+
+        self.assertEqual(set(changed), {hook_path(agent, self.home) for agent in AGENTS})
+        statuses = hooks_status(AGENTS, home=self.home)
+        self.assertTrue(all(item.valid and item.installed and item.private for item in statuses))
+        self.assertEqual(
+            install_hooks(AGENTS, home=self.home, executable="/bin/konsole-pal"),
+            [],
+        )
+
+        claude = json.loads(hook_path("claude", self.home).read_text())
+        self.assertIn("PermissionRequest", claude["hooks"])
+        gemini = json.loads(hook_path("gemini", self.home).read_text())
+        self.assertIn("AfterAgent", gemini["hooks"])
+        copilot = json.loads(hook_path("copilot", self.home).read_text())
+        self.assertIn("agentStop", copilot["hooks"])
+        self.assertIn("Bun.spawn", hook_path("opencode", self.home).read_text())
+        self.assertIn(
+            "notifications-command:", hook_path("aider", self.home).read_text()
+        )
+
+    def test_uninstall_all_adapters_removes_only_our_entries(self):
+        install_hooks(AGENTS, home=self.home, executable="/bin/konsole-pal")
+
+        changed = uninstall_hooks(AGENTS, home=self.home)
+
+        self.assertEqual(set(changed), {hook_path(agent, self.home) for agent in AGENTS})
+        self.assertTrue(all(not item.installed for item in hooks_status(AGENTS, home=self.home)))
+
+    @unittest.skipUnless(shutil.which("bun"), "Bun is required for plugin syntax QA")
+    def test_generated_opencode_plugin_has_valid_javascript_syntax(self):
+        install_hooks(
+            ["opencode"], home=self.home, executable="/bin/konsole-pal"
+        )
+
+        result = subprocess.run(
+            [shutil.which("bun"), "--check", str(hook_path("opencode", self.home))],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

@@ -17,15 +17,19 @@ from .config import (
     Settings,
     format_settings,
     load_settings,
+    reset_agent_setting,
     reset_setting,
     reset_user_setting,
     user_config_path,
+    write_agent_setting,
     write_setting,
     write_user_setting,
 )
 from .core import (
     VALID_STATES,
+    acknowledge_attention,
     animate,
+    attention_states,
     default_label,
     event_to_state,
     find_qdbus,
@@ -44,7 +48,8 @@ from .hooks import (
     uninstall_hooks,
 )
 from .presentation import brand, compact_path, heading, message, rows
-from .sounds import SOUND_KINDS, find_audio_player, play_sound
+from .sounds import SOUND_KINDS, SOUND_THEMES, find_audio_player, play_sound
+from .themes import install_theme, list_themes, load_theme
 
 STATE_PRESENTATION = {
     "working": ("Working", "info"),
@@ -86,6 +91,13 @@ def _demo_speed(value: str) -> float:
     return parsed
 
 
+def _watch_interval(value: str) -> float:
+    parsed = float(value)
+    if not 0.25 <= parsed <= 60:
+        raise argparse.ArgumentTypeError("interval must be between 0.25 and 60 seconds")
+    return parsed
+
+
 def _terminal_label() -> str:
     target = target_from_env()
     if target is None:
@@ -94,20 +106,35 @@ def _terminal_label() -> str:
         "konsole": "Konsole",
         "zellij": "Zellij",
         "tmux": "tmux",
+        "kitty": "Kitty",
+        "wezterm": "WezTerm",
+        "ghostty": "Ghostty",
         "osc": "SSH / terminal",
     }.get(target.backend, target.backend.title())
 
 
+def _detected_agents() -> list[str]:
+    detected = [agent for agent in AGENTS if shutil.which(agent)]
+    installed_hooks = [status.agent for status in hooks_status() if status.installed]
+    return list(dict.fromkeys([*detected, *installed_hooks]))
+
+
 def _settings_rows(settings: Settings) -> list[tuple[str, str, str]]:
     return [
+        ("Preset", settings.preset.title(), "info"),
         ("Focus", {"all": "Completions + attention", "attention": "Attention only", "never": "Never"}[settings.focus], "info"),
         ("Sound", "On" if settings.sound else "Off", "ok" if settings.sound else "idle"),
         ("Volume", f"{round(settings.volume * 100)}%", "info"),
+        ("Sound theme", settings.sound_theme.title(), "info"),
         ("Motion", "Gentle pulse" if settings.animation == "pulse" else "Still", "info"),
         ("Sprite", settings.sprite_size.title(), "info"),
+        ("Theme", settings.theme, "info"),
+        ("Notifications", settings.notification.title(), "info"),
+        ("Quiet hours", settings.quiet_hours, "info"),
         ("Cadence", f"{settings.animation_interval:g}s", "info"),
         ("Label width", f"{settings.label_max_cells} cells", "info"),
         ("Work timeout", "Never" if settings.working_timeout == 0 else f"{settings.working_timeout:g}s", "info"),
+        ("Attention expiry", "Never" if settings.attention_timeout == 0 else f"{settings.attention_timeout:g}s", "info"),
     ]
 
 
@@ -141,6 +168,7 @@ def _load_settings_for(
     return load_settings(
         cwd=(payload or {}).get("cwd"),
         overrides=overrides,
+        agent=getattr(args, "agent", None),
     )
 
 
@@ -264,9 +292,215 @@ def command_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _attention_items() -> list[tuple[Path, Any]]:
+    return attention_states()
+
+
+def _attention_json(items: list[tuple[Path, Any]]) -> list[dict[str, Any]]:
+    now = time.time()
+    return [
+        {
+            "id": state.target.key,
+            "state": state.state,
+            "agent": state.agent,
+            "label": state.label,
+            "backend": state.target.backend,
+            "age_seconds": max(0, round(now - state.updated_at, 3)),
+            "focusable": state.target.backend
+            in {"konsole", "zellij", "tmux", "kitty", "wezterm"},
+        }
+        for _path, state in items
+    ]
+
+
+def _print_inbox(items: list[tuple[Path, Any]], *, verbose: bool = False) -> None:
+    _print_brand("Only the agents that genuinely need you.")
+    print()
+    print(heading(f"Attention inbox · {len(items)} unread"))
+    if not items:
+        print(message("Nothing needs you right now.", state="idle"))
+        return
+    display = []
+    now = time.time()
+    for _path, state in items:
+        age = max(0, int(now - state.updated_at))
+        detail = f"{state.agent.title()} · {state.target.backend.title()} · {age}s ago"
+        if verbose:
+            detail += f" · {state.target.key}"
+        display.append(
+            (state.label, detail, "error" if state.state == "error" else "warn")
+        )
+    print(rows(display))
+
+
+def _select_attention(identifier: str | None) -> tuple[Path, Any] | None:
+    items = _attention_items()
+    if not items:
+        return None
+    if not identifier:
+        return items[0]
+    needle = identifier.casefold()
+    matches = [
+        item
+        for item in items
+        if item[1].target.key.startswith(needle)
+        or item[1].agent.casefold() == needle
+        or needle in item[1].label.casefold()
+    ]
+    if len(matches) > 1:
+        raise SystemExit(
+            f"konsole-pal: {identifier!r} matches multiple items; use the displayed id"
+        )
+    return matches[0] if matches else None
+
+
+def command_inbox(args: argparse.Namespace) -> int:
+    items = _attention_items()
+    if args.json:
+        print(json.dumps(_attention_json(items), indent=2))
+    else:
+        _print_inbox(items, verbose=args.verbose)
+    return 0
+
+
+def command_next(args: argparse.Namespace) -> int:
+    if args.target:
+        selected = _select_attention(args.target)
+    else:
+        items = _attention_items()
+        selected = next(
+            (
+                item
+                for item in items
+                if item[1].target.backend
+                in {"konsole", "zellij", "tmux", "kitty", "wezterm"}
+            ),
+            items[0] if items else None,
+        )
+    if selected is None:
+        print(message("Nothing needs you right now.", state="idle"))
+        return 0
+    path, state = selected
+    if not acknowledge_attention(path, activate=True):
+        print(
+            message(
+                f"{state.label} cannot be focused automatically on {state.target.backend}; it remains unread.",
+                state="warn",
+            )
+        )
+        return 1
+    print(message(f"Jumped to {state.label} and cleared its unread state."))
+    return 0
+
+
+def command_ack(args: argparse.Namespace) -> int:
+    items = _attention_items()
+    selected = items if args.all else []
+    if not args.all:
+        item = _select_attention(args.target)
+        selected = [item] if item else []
+    changed = sum(
+        1 for path, _state in selected if acknowledge_attention(path, activate=False)
+    )
+    print(message(f"Cleared {changed} attention item(s)."))
+    return 0 if changed or not items else 1
+
+
+def command_watch(args: argparse.Namespace) -> int:
+    previous = None
+    try:
+        while True:
+            items = _attention_items()
+            snapshot = json.dumps(_attention_json(items), sort_keys=True)
+            if snapshot != previous:
+                if sys.stdout.isatty() and not args.once:
+                    print("\x1b[2J\x1b[H", end="")
+                _print_inbox(items, verbose=args.verbose)
+                previous = snapshot
+            if args.once:
+                return 0
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        return 130
+
+
+def command_emit(args: argparse.Namespace) -> int:
+    target = _target_or_error()
+    settings = _load_settings_for(args)
+    update_session(
+        args.state,
+        agent=args.agent,
+        label=args.label or default_label(args.agent),
+        target=target,
+        focus=args.focus,
+        sound=False if args.no_sound else None,
+        settings=settings,
+    )
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "state": args.state,
+                    "agent": args.agent,
+                    "target": target.key,
+                }
+            )
+        )
+    return 0
+
+
+def _command_theme(args: argparse.Namespace) -> int:
+    if args.theme_action == "install":
+        theme = install_theme(Path(args.path))
+        print(message(f"Installed validated theme {theme.name}."))
+        return 0
+    themes = list_themes()
+    if args.theme_action == "list":
+        if args.json:
+            print(
+                json.dumps(
+                    [
+                        {"name": theme.name, "description": theme.description}
+                        for theme in themes
+                    ],
+                    indent=2,
+                )
+            )
+        else:
+            _print_brand("Fixed-width companions for every terminal.")
+            print()
+            print(rows([(theme.name, theme.description, "info") for theme in themes]))
+        return 0
+    theme = load_theme(args.name)
+    size = args.sprite_size
+    _print_brand(f"Theme preview · {theme.name}")
+    print()
+    preview = [
+        ("Working", "  ".join(theme.frames[size]), "info"),
+        *[
+            (state.title(), theme.finals[size][state], "warn" if state == "attention" else "info")
+            for state in ("idle", "done", "attention", "error")
+        ],
+    ]
+    print(rows(preview))
+    return 0
+
+
+def command_theme(args: argparse.Namespace) -> int:
+    try:
+        return _command_theme(args)
+    except ValueError as error:
+        raise ConfigError(str(error)) from error
+
+
 def command_sound(args: argparse.Namespace) -> int:
     settings = _load_settings_for(args)
-    if not settings.sound or not play_sound(args.kind, volume=settings.volume):
+    theme = args.theme or settings.sound_theme
+    if not settings.sound or not play_sound(
+        args.kind,
+        volume=settings.volume,
+        theme=theme,
+    ):
         raise SystemExit("konsole-pal: no supported audio player or sound is disabled")
     return 0
 
@@ -274,7 +508,7 @@ def command_sound(args: argparse.Namespace) -> int:
 def command_config(args: argparse.Namespace) -> int:
     project_path = Path.cwd() / ".konsole-pal.toml"
     if args.config_action == "show":
-        settings = load_settings(cwd=Path.cwd())
+        settings = load_settings(cwd=Path.cwd(), agent=args.agent)
         if args.json:
             print(json.dumps(settings.to_dict(), indent=2))
         elif args.toml:
@@ -291,18 +525,24 @@ def command_config(args: argparse.Namespace) -> int:
         return 0
     target_path = project_path if args.project else user_config_path()
     if args.config_action == "set":
-        path = (
-            write_setting(target_path, args.key, args.value)
-            if args.project
-            else write_user_setting(args.key, args.value)
-        )
+        if args.agent:
+            path = write_agent_setting(target_path, args.agent, args.key, args.value)
+        else:
+            path = (
+                write_setting(target_path, args.key, args.value)
+                if args.project
+                else write_user_setting(args.key, args.value)
+            )
         print(message(f"Updated {args.key.replace('_', ' ')} in {compact_path(path)}."))
         return 0
-    path = (
-        reset_setting(target_path, args.key)
-        if args.project
-        else reset_user_setting(args.key)
-    )
+    if args.agent:
+        path = reset_agent_setting(target_path, args.agent, args.key)
+    else:
+        path = (
+            reset_setting(target_path, args.key)
+            if args.project
+            else reset_user_setting(args.key)
+        )
     label = args.key.replace("_", " ") if args.key else "settings"
     print(message(f"Reset {label} in {compact_path(path)}."))
     return 0
@@ -367,11 +607,16 @@ def command_reset(_args: argparse.Namespace) -> int:
 
 
 def command_doctor(args: argparse.Namespace) -> int:
+    agents = _detected_agents() or ["codex", "cursor"]
     repair_messages = []
     if args.repair:
         try:
             install_hooks(
-                [status.agent for status in hooks_status() if not status.installed]
+                [
+                    status.agent
+                    for status in hooks_status(agents)
+                    if not status.installed
+                ]
             )
         except HookConfigError as error:
             repair_messages.append(("Hook repair", str(error), "warn"))
@@ -397,7 +642,7 @@ def command_doctor(args: argparse.Namespace) -> int:
         ("Python >= 3.10", sys.version_info >= (3, 10)),
         ("settings", settings_valid),
     ]
-    for status in hooks_status():
+    for status in hooks_status(agents):
         checks.append(
             (
                 f"{status.agent} hooks",
@@ -435,7 +680,8 @@ def command_doctor(args: argparse.Namespace) -> int:
 
 
 def command_setup(args: argparse.Namespace) -> int:
-    agents = args.agents or list(AGENTS)
+    detected = _detected_agents()
+    agents = args.agents or detected or ["codex", "cursor"]
     invalid = sorted(set(agents) - set(AGENTS))
     if invalid:
         raise HookConfigError(f"unsupported agent: {invalid[0]}")
@@ -444,6 +690,11 @@ def command_setup(args: argparse.Namespace) -> int:
         _print_brand("Three small choices, then you're ready.")
         print()
         print(heading("Choose your setup"))
+    preset = getattr(args, "preset", None) or (
+        _prompt_choice("Choose a personality", ("minimal", "balanced", "playful"), "balanced")
+        if interactive
+        else "balanced"
+    )
     focus = args.focus or (
         _prompt_choice("Select tab focus", ("attention", "all", "never"), "attention")
         if interactive
@@ -459,9 +710,16 @@ def command_setup(args: argparse.Namespace) -> int:
         if interactive
         else "pulse"
     )
+    theme = getattr(args, "theme", None) or (
+        _prompt_choice("Choose a companion", ("rabbit", "ascii", "mono"), "rabbit")
+        if interactive
+        else "rabbit"
+    )
+    write_user_setting("preset", preset)
     write_user_setting("focus", focus)
     write_user_setting("sprite_size", sprite_size)
     write_user_setting("animation", animation)
+    write_user_setting("theme", theme)
     changed = install_hooks(agents, force=args.force)
     settings = load_settings()
     sound_ready = bool(find_audio_player())
@@ -471,8 +729,10 @@ def command_setup(args: argparse.Namespace) -> int:
         "terminal": _terminal_label(),
         "agents": agents,
         "focus": focus,
+        "preset": preset,
         "sprite_size": sprite_size,
         "animation": animation,
+        "theme": theme,
         "sound": sound_ready,
         "hook_files_changed": len(changed),
     }
@@ -488,15 +748,17 @@ def command_setup(args: argparse.Namespace) -> int:
             [
                 ("Terminal", result["terminal"], "ok" if result["terminal"] != "Not detected" else "warn"),
                 ("Agents", " · ".join(agent.title() for agent in agents), "ok"),
+                ("Preset", preset.title(), "ok"),
                 ("Focus", {"attention": "Attention only", "all": "Completions + attention", "never": "Never"}[focus], "ok"),
                 ("Sprite", sprite_size.title(), "ok"),
                 ("Motion", "Gentle pulse" if animation == "pulse" else "Still", "ok"),
+                ("Theme", theme.title(), "ok"),
                 ("Sound", "Ready" if sound_ready else "Player not found", "ok" if sound_ready else "warn"),
             ]
         )
     )
     print()
-    print(message("Restart Codex and Cursor, then let the rabbit work."))
+    print(message(f"Restart {', '.join(agent.title() for agent in agents)}, then let the rabbit work."))
     print(message("Try `konsole-pal demo` for a quick preview.", state="info"))
     return 0
 
@@ -536,7 +798,7 @@ def command_demo(args: argparse.Namespace) -> int:
 
 
 def _completion_script(shell: str) -> str:
-    commands = "setup status doctor demo run config hooks sound completions reset set"
+    commands = "setup status inbox next ack watch emit doctor demo run config hooks theme sound completions reset set"
     settings = " ".join(SETTING_KEYS)
     if shell == "bash":
         return f'''_konsole_pal() {{
@@ -593,8 +855,10 @@ def build_parser() -> argparse.ArgumentParser:
     setup_parser = sub.add_parser("setup", help="guided first-run setup")
     setup_parser.add_argument("agents", nargs="*", metavar="AGENT")
     setup_parser.add_argument("--focus", choices=("all", "attention", "never"))
+    setup_parser.add_argument("--preset", choices=("minimal", "balanced", "playful"))
     setup_parser.add_argument("--animation", choices=("pulse", "static"))
     setup_parser.add_argument("--sprite-size", choices=("small", "medium", "large"))
+    setup_parser.add_argument("--theme", choices=("rabbit", "ascii", "mono"))
     setup_parser.add_argument("--preview-sound", action="store_true")
     setup_parser.add_argument("--yes", action="store_true", help="accept calm defaults")
     setup_parser.add_argument("--force", action="store_true")
@@ -605,6 +869,26 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--json", action="store_true")
     status_parser.add_argument("--verbose", action="store_true")
     status_parser.set_defaults(func=command_status)
+
+    inbox_parser = sub.add_parser("inbox", help="show unread agent requests")
+    inbox_parser.add_argument("--json", action="store_true")
+    inbox_parser.add_argument("--verbose", action="store_true")
+    inbox_parser.set_defaults(func=command_inbox)
+
+    next_parser = sub.add_parser("next", help="jump to the newest unread agent")
+    next_parser.add_argument("target", nargs="?")
+    next_parser.set_defaults(func=command_next)
+
+    ack_parser = sub.add_parser("ack", help="clear an unread agent request")
+    ack_parser.add_argument("target", nargs="?")
+    ack_parser.add_argument("--all", action="store_true")
+    ack_parser.set_defaults(func=command_ack)
+
+    watch_parser = sub.add_parser("watch", help="watch the attention inbox on demand")
+    watch_parser.add_argument("--interval", type=_watch_interval, default=1.0)
+    watch_parser.add_argument("--verbose", action="store_true")
+    watch_parser.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
+    watch_parser.set_defaults(func=command_watch)
 
     doctor_parser = sub.add_parser("doctor", help="check local integration health")
     doctor_parser.add_argument("--repair", action="store_true")
@@ -626,8 +910,17 @@ def build_parser() -> argparse.ArgumentParser:
     set_parser.add_argument("--no-sound", action="store_true")
     set_parser.set_defaults(func=command_set)
 
+    emit_parser = sub.add_parser("emit", help="emit a normalized agent event")
+    emit_parser.add_argument("state", choices=sorted(VALID_STATES))
+    emit_parser.add_argument("--agent", default="agent")
+    emit_parser.add_argument("--label")
+    emit_parser.add_argument("--focus", action="store_true")
+    emit_parser.add_argument("--no-sound", action="store_true")
+    emit_parser.add_argument("--json", action="store_true")
+    emit_parser.set_defaults(func=command_emit)
+
     hook_parser = sub.add_parser("hook", help=argparse.SUPPRESS)
-    hook_parser.add_argument("--agent", choices=("codex", "cursor"), required=True)
+    hook_parser.add_argument("--agent", choices=AGENTS, required=True)
     hook_parser.add_argument("--label")
     hook_parser.add_argument("--no-focus", action="store_true")
     hook_parser.add_argument("--no-sound", action="store_true")
@@ -643,7 +936,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     sound_parser = sub.add_parser("sound", help="preview a notification sound")
     sound_parser.add_argument("kind", choices=SOUND_KINDS)
+    sound_parser.add_argument("--theme", choices=SOUND_THEMES)
     sound_parser.set_defaults(func=command_sound)
+
+    theme_parser = sub.add_parser("theme", help="list, preview, or install themes")
+    theme_sub = theme_parser.add_subparsers(dest="theme_action", required=True)
+    theme_list = theme_sub.add_parser("list")
+    theme_list.add_argument("--json", action="store_true")
+    theme_list.set_defaults(func=command_theme)
+    theme_preview = theme_sub.add_parser("preview")
+    theme_preview.add_argument("name")
+    theme_preview.add_argument(
+        "--sprite-size", choices=("small", "medium", "large"), default="medium"
+    )
+    theme_preview.set_defaults(func=command_theme)
+    theme_install = theme_sub.add_parser("install")
+    theme_install.add_argument("path")
+    theme_install.set_defaults(func=command_theme)
 
     config_parser = sub.add_parser("config", help="show or edit layered settings")
     config_sub = config_parser.add_subparsers(dest="config_action", required=True)
@@ -651,18 +960,21 @@ def build_parser() -> argparse.ArgumentParser:
     config_show.add_argument("--json", action="store_true")
     config_show.add_argument("--toml", action="store_true")
     config_show.add_argument("--verbose", action="store_true")
+    config_show.add_argument("--agent")
     config_show.set_defaults(func=command_config)
     config_set = config_sub.add_parser("set", help="set one setting")
     config_set.add_argument("key", choices=SETTING_KEYS)
     config_set.add_argument("value")
     config_set.add_argument("--project", action="store_true")
+    config_set.add_argument("--agent")
     config_set.set_defaults(func=command_config)
     config_reset = config_sub.add_parser("reset", help="reset one or all settings")
     config_reset.add_argument("key", choices=SETTING_KEYS, nargs="?")
     config_reset.add_argument("--project", action="store_true")
+    config_reset.add_argument("--agent")
     config_reset.set_defaults(func=command_config)
 
-    hooks_parser = sub.add_parser("hooks", help="manage Codex and Cursor hooks")
+    hooks_parser = sub.add_parser("hooks", help="manage terminal agent integrations")
     hooks_sub = hooks_parser.add_subparsers(dest="hooks_action", required=True)
     for action in ("install", "status", "uninstall"):
         action_parser = hooks_sub.add_parser(action)
