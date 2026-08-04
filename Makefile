@@ -1,13 +1,13 @@
 .PHONY: test integration lint security build verify
 
 test:
-	uv run --extra dev python -m unittest discover -s tests -v
+	uv run --locked --extra dev python -m unittest discover -s tests -v
 
 integration:
-	KONSOLE_PAL_INTEGRATION=1 uv run --extra dev python -m unittest discover -s tests -v
+	KONSOLE_PAL_INTEGRATION=1 uv run --locked --extra dev python -m unittest discover -s tests -v
 
 lint:
-	uv run --extra dev ruff check src tests scripts
+	uv run --locked --extra dev ruff check src tests scripts
 
 security:
 	uvx bandit -r src -q
@@ -22,4 +22,4 @@ build:
 	uvx check-wheel-contents dist/*.whl
 
 verify: security lint integration build
-	uv run --extra dev python -m compileall -q src tests scripts
+	uv run --locked --extra dev python -m compileall -q src tests scripts

@@ -76,6 +76,14 @@ uv tool install konsole-pal
 konsole-pal setup
 ```
 
+Prefer Nix? The committed flake lock keeps the package input reproducible:
+
+```sh
+nix run github:daredoole/konsole-pal
+# Or install it into your profile:
+nix profile install github:daredoole/konsole-pal
+```
+
 For native Konsole control, install whichever Qt D-Bus command your distribution
 provides: `qdbus6`, `qdbus-qt6`, or `qdbus`. Without it, konsole-pal safely
 falls back to the standard terminal-title escape sequence.
@@ -331,13 +339,14 @@ If installed with uv, replace the last command with
 ```sh
 git clone https://github.com/daredoole/konsole-pal.git
 cd konsole-pal
-uv sync --extra dev
+uv sync --locked --extra dev
 make verify
 ```
 
 `make verify` runs Ruff, all unit tests, real tmux/Zellij integration tests
 when available, bytecode compilation, wheel/sdist builds, and package metadata
-validation. CI repeats the suite on Python 3.10 through 3.14.
+validation. CI repeats the suite on Python 3.10 through 3.14 and validates the
+locked Nix flake. Locked UV commands fail fast if dependency metadata drifts.
 
 Please read [CONTRIBUTING.md](https://github.com/daredoole/konsole-pal/blob/main/CONTRIBUTING.md),
 the [changelog](https://github.com/daredoole/konsole-pal/blob/main/CHANGELOG.md),
