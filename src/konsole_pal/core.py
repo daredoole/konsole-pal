@@ -34,6 +34,9 @@ FINAL_STATE_TTL = 7 * 24 * 60 * 60
 WORKING_STATE_TTL = 4 * 60 * 60
 FOCUS_EVENT_TTL = 30.0
 FOCUS_PRIORITY = {"idle": 0, "done": 1, "error": 2, "attention": 3}
+ANSI_ESCAPE_RE = re.compile(
+    r"(?:\x1b\][^\x07]*(?:\x07|\x1b\\))|(?:\x1b\[[0-?]*[ -/]*[@-~])"
+)
 
 
 @dataclass(frozen=True)
@@ -373,7 +376,20 @@ def acknowledge_attention(path: Path, *, activate: bool = False) -> bool:
             state.updated_at = time.time()
             _write_state_file(path, state)
             set_title(state.target, title_for(state), persist=True)
-            return True
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return False
+    return True
+
+
+def rename_session(path: Path, label: str) -> bool:
+    safe = sanitize_label(label, 80)
+    try:
+        with _state_lock(path):
+            state = read_state(path)
+            state.label = f"{agent_display_name(state.agent)} · {safe}"
+            _write_state_file(path, state)
+        set_title(state.target, title_for(state), persist=True)
+        return True
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return False
 
@@ -605,6 +621,7 @@ def text_cell_width(text: str) -> int:
 
 
 def sanitize_label(label: str, max_cells: int = LABEL_MAX_CELLS) -> str:
+    label = ANSI_ESCAPE_RE.sub("", label)
     cleaned = "".join(
         " " if char.isspace() or unicodedata.category(char).startswith("C") else char
         for char in label
@@ -719,11 +736,8 @@ def event_to_state(agent: str, payload: Mapping[str, Any]) -> tuple[str, bool] |
     return None
 
 
-def default_label(agent: str, payload: Mapping[str, Any] | None = None) -> str:
-    payload = payload or {}
-    cwd = str(payload.get("cwd") or os.getcwd())
-    project = Path(cwd).name or "terminal"
-    pretty_agent = {
+def agent_display_name(agent: str) -> str:
+    return {
         "codex": "Codex",
         "cursor": "Cursor",
         "claude": "Claude",
@@ -732,6 +746,20 @@ def default_label(agent: str, payload: Mapping[str, Any] | None = None) -> str:
         "aider": "Aider",
         "copilot": "Copilot",
     }.get(agent, agent.title())
+
+
+def default_label(
+    agent: str,
+    payload: Mapping[str, Any] | None = None,
+    env: Mapping[str, str] = os.environ,
+) -> str:
+    payload = payload or {}
+    cwd = str(payload.get("cwd") or os.getcwd())
+    project = Path(cwd).name or "terminal"
+    pretty_agent = agent_display_name(agent)
+    task = env.get("KONSOLE_PAL_TASK", "").strip()
+    if task:
+        return f"{pretty_agent} · {sanitize_label(task, 80)}"
     return f"{pretty_agent} · {project}"
 
 

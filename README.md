@@ -47,7 +47,7 @@ filesystem path, notifications, or device information.
 ## A CLI designed for humans and scripts
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/cli.png" alt="Real Konsole window showing the Konsole Pal preferences interface" width="768">
+  <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/cli.png" alt="Real Konsole window showing AI agent sessions and direct actions in the unified live view" width="768">
 </p>
 
 Interactive commands use a terminal-native palette and aligned status rows.
@@ -128,11 +128,31 @@ konsole-pal inbox          # only unread questions, approvals, and failures
 konsole-pal next           # jump to and acknowledge the newest focusable item
 konsole-pal ack codex      # clear one matching item
 konsole-pal ack --all
-konsole-pal watch          # optional on-demand view; no permanent dashboard
+konsole-pal status         # one snapshot of every tracked agent session
+konsole-pal watch          # live unified view; exits cleanly with Ctrl-C
+konsole-pal watch --attention-only
+konsole-pal watch --expanded
 ```
 
 `next` acknowledges only after the terminal confirms that it focused the target.
 An unsupported remote target stays unread instead of silently disappearing.
+`watch` uses an alternate terminal screen, refreshes only when displayed state
+changes, and leaves no permanent dashboard or background process behind. Use
+arrow keys or `j`/`k` to move and Enter or Space to expand a session. Press `f`
+to focus its terminal, `a` to acknowledge an unread request, `t` to edit its
+display-only task label, `/` to filter by agent, task, state, or terminal, Escape
+to clear the filter, and `q` to close. Expanded cards show the task label, state,
+terminal, age, and opaque local session ID.
+
+Automatic hooks use the project name as the task label. To provide a more useful
+description without granting access to prompts or transcripts, set a short label
+before starting the agent:
+
+```sh
+KONSOLE_PAL_TASK="Refactor checkout flow" codex
+```
+
+Manual integrations can instead pass `--label` to `emit`, `set`, or `run`.
 
 ## Terminal support
 
@@ -266,10 +286,10 @@ state. It does not remove settings or agent hooks.
 
 - Runtime files live under `$XDG_RUNTIME_DIR/konsole-pal` in a mode-0700 directory.
 - State, configuration, generated sounds, hook files, and backups use mode 0600.
-- State contains only a short display label and terminal routing identifiers.
+- State contains only a sanitized task/display label and terminal routing identifiers.
 - Desktop and terminal notifications contain only the generic state and that label.
 - Prompts, responses, transcripts, command output, and environment dumps are never stored.
-- Labels are stripped of control characters and width-limited before reaching a title.
+- Labels are stripped of control characters and width-limited in titles and CLI views.
 - External programs are invoked with argument arrays and `shell=False`.
 - Python 3.11+ has no runtime dependencies; Python 3.10 uses only the small
   `tomli` standard-library backport. The package performs no network requests or telemetry.

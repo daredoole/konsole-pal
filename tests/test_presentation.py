@@ -2,7 +2,7 @@ import io
 import unittest
 from unittest.mock import patch
 
-from konsole_pal.presentation import brand, paint, rows
+from konsole_pal.presentation import brand, cell_width, paint, rows, truncate
 
 
 class TtyBuffer(io.StringIO):
@@ -40,6 +40,21 @@ class PresentationTests(unittest.TestCase):
         )
         lines = output.splitlines()
         self.assertEqual(lines[0].index("Ready"), lines[1].index("Calm"))
+
+    def test_rows_align_wide_unicode_labels_by_terminal_cells(self):
+        output = rows(
+            [("兔", "Ready", "ok"), ("aa", "Calm", "info")],
+            stream=io.StringIO(),
+        )
+        lines = output.splitlines()
+        ready_column = cell_width(lines[0][: lines[0].index("Ready")])
+        calm_column = cell_width(lines[1][: lines[1].index("Calm")])
+        self.assertEqual(ready_column, calm_column)
+
+    def test_truncate_respects_terminal_cells_and_keeps_an_ellipsis(self):
+        rendered = truncate("🐇abc", 4)
+        self.assertEqual(rendered, "🐇a…")
+        self.assertEqual(cell_width(rendered), 4)
 
 
 if __name__ == "__main__":
