@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 - 2026-08-04
+
+- Keep Codex agent titles visible over plain SSH by safely disabling its
+  competing terminal-title spinner while preserving unrelated TOML and hook
+  trust requirements.
+- Set Konsole's displayed remote tab title directly with sanitized OSC 30 after
+  the portable OSC 0 title sequence.
+- Resolve the real controlling PTY for detached animation workers, including
+  unprivileged Proxmox/LXC sessions, without permitting cross-tab writes.
+- Expand SSH, Codex configuration, PTY, security, and idempotence regression
+  coverage and document the repaired setup and diagnostics.
+
 ## 1.0.0 - 2026-08-04
 
 - Add a durable attention inbox with deterministic `next` and `ack`, plus an

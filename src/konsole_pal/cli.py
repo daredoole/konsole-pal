@@ -49,6 +49,10 @@ from .core import (
 from .hooks import (
     AGENTS,
     HookConfigError,
+    codex_config_path,
+    codex_ssh_title_ready,
+    configure_codex_ssh_title,
+    hook_path,
     hooks_status,
     install_hooks,
     uninstall_hooks,
@@ -1094,6 +1098,13 @@ def command_hooks(args: argparse.Namespace) -> int:
                 f"Connected {', '.join(agent.title() for agent in agents)}; {len(changed)} file(s) changed."
             )
         )
+        if "codex" in agents:
+            print(
+                message(
+                    "Codex security: restart it, run `/hooks`, and trust the Konsole Pal hook.",
+                    state="info",
+                )
+            )
         return 0
     if args.hooks_action == "uninstall":
         changed = uninstall_hooks(agents)
@@ -1166,6 +1177,20 @@ def command_doctor(args: argparse.Namespace) -> int:
             )
         except HookConfigError as error:
             repair_messages.append(("Hook repair", str(error), "warn"))
+        if "codex" in agents:
+            try:
+                codex_config = configure_codex_ssh_title()
+                repair_messages.append(
+                    (
+                        "Codex SSH title",
+                        "disabled competing OSC title"
+                        if codex_config is not None
+                        else "already compatible",
+                        "ok",
+                    )
+                )
+            except HookConfigError as error:
+                repair_messages.append(("Codex SSH title", str(error), "warn"))
         stale_states, stale_pid = repair_runtime()
         repair_messages.append(
             (
@@ -1195,6 +1220,10 @@ def command_doctor(args: argparse.Namespace) -> int:
                 status.valid and status.installed and status.private,
             )
         )
+    if "codex" in agents and (
+        os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY")
+    ):
+        checks.append(("Codex SSH title", codex_ssh_title_ready()))
     if args.json:
         print(json.dumps({"checks": {name: okay for name, okay in checks}}, indent=2))
     else:
@@ -1273,6 +1302,7 @@ def command_setup(args: argparse.Namespace) -> int:
     write_user_setting("animation", animation)
     write_user_setting("theme", theme)
     changed = install_hooks(agents, force=args.force)
+    hook_paths = {hook_path(agent) for agent in agents}
     settings = load_settings()
     sound_ready = bool(find_audio_player())
     if args.preview_sound and settings.sound:
@@ -1286,7 +1316,12 @@ def command_setup(args: argparse.Namespace) -> int:
         "animation": animation,
         "theme": theme,
         "sound": sound_ready,
-        "hook_files_changed": len(changed),
+        "hook_files_changed": sum(path in hook_paths for path in changed),
+        "codex_config_changed": codex_config_path() in changed,
+        "codex_hook_review": "/hooks" if "codex" in agents else None,
+        "codex_ssh_title_ready": (
+            codex_ssh_title_ready() if "codex" in agents else None
+        ),
     }
     if args.json:
         print(json.dumps(result, indent=2))
@@ -1331,6 +1366,13 @@ def command_setup(args: argparse.Namespace) -> int:
             f"Restart {', '.join(agent.title() for agent in agents)}, then let the rabbit work."
         )
     )
+    if "codex" in agents:
+        print(
+            message(
+                "In Codex, run `/hooks` and trust the Konsole Pal hook once.",
+                state="info",
+            )
+        )
     print(message("Try `konsole-pal demo` for a quick preview.", state="info"))
     return 0
 

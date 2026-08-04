@@ -6,13 +6,21 @@ import re
 import shlex
 import shutil
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10
+    import tomli as tomllib
+
 AGENTS = ("codex", "cursor", "claude", "gemini", "opencode", "copilot", "aider")
 COMMAND_NAMES = ("konsole-pal", "knsole-pal")
+CODEX_TITLE_COMMENT = (
+    "# konsole-pal: keep plain-SSH agent status visible instead of Codex's OSC title"
+)
 
 
 class HookConfigError(ValueError):
@@ -180,10 +188,16 @@ def _write(path: Path, data: dict[str, Any], *, backup: bool = True) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _write_text(path: Path, content: str, *, backup: bool = True) -> None:
+def _write_text(
+    path: Path,
+    content: str,
+    *,
+    backup: bool = True,
+    backup_suffix: str = ".bak",
+) -> None:
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if backup and path.exists():
-        backup_path = path.with_suffix(path.suffix + ".bak")
+        backup_path = path.with_suffix(path.suffix + backup_suffix)
         shutil.copy2(path, backup_path)
         os.chmod(backup_path, 0o600)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -197,6 +211,141 @@ def _write_text(path: Path, content: str, *, backup: bool = True) -> None:
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def codex_config_path(home: Path | None = None) -> Path:
+    return (home or Path.home()) / ".codex" / "config.toml"
+
+
+def _plain_ssh(env: Mapping[str, str]) -> bool:
+    remote = bool(env.get("SSH_CONNECTION") or env.get("SSH_TTY"))
+    multiplexed = bool(env.get("TMUX") or env.get("ZELLIJ"))
+    return remote and not multiplexed
+
+
+def _toml_assignment_end(lines: list[str], start: int, table_header: str) -> int:
+    """Return the first line that completes one TOML assignment."""
+    for end in range(start + 1, len(lines) + 1):
+        candidate = table_header + "\n" + "\n".join(lines[start:end]) + "\n"
+        try:
+            parsed = tomllib.loads(candidate)
+        except tomllib.TOMLDecodeError:
+            continue
+        table = parsed.get("tui", {})
+        if isinstance(table, dict) and "terminal_title" in table:
+            return end
+    raise HookConfigError("could not safely update Codex terminal_title")
+
+
+def _validated_codex_title_config(content: str) -> str:
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError as error:
+        raise HookConfigError(
+            f"could not safely update Codex config.toml: {error}"
+        ) from error
+    tui = data.get("tui", {})
+    if not isinstance(tui, dict) or tui.get("terminal_title") != []:
+        raise HookConfigError("could not safely disable Codex terminal_title")
+    return content
+
+
+def _codex_title_config(original: str) -> str:
+    try:
+        parsed = tomllib.loads(original) if original.strip() else {}
+    except tomllib.TOMLDecodeError as error:
+        raise HookConfigError(f"invalid Codex config.toml: {error}") from error
+
+    tui = parsed.get("tui", {})
+    if tui and not isinstance(tui, dict):
+        raise HookConfigError("invalid Codex config.toml: tui must be a table")
+    if isinstance(tui, dict) and tui.get("terminal_title") == []:
+        return original
+
+    lines = original.splitlines()
+    table_start = None
+    table_end = len(lines)
+    for index, line in enumerate(lines):
+        if re.match(r"^\s*\[\s*tui\s*\]\s*(?:#.*)?$", line):
+            table_start = index
+            continue
+        if table_start is not None and index > table_start and re.match(
+            r"^\s*\[", line
+        ):
+            table_end = index
+            break
+
+    dotted = re.compile(r"^(\s*)tui\.terminal_title\s*=")
+    direct = re.compile(r"^(\s*)terminal_title\s*=")
+    for index, line in enumerate(lines):
+        match = dotted.match(line) if table_start is None else None
+        if match:
+            end = _toml_assignment_end(lines, index, "")
+            lines[index:end] = [CODEX_TITLE_COMMENT, "tui.terminal_title = []"]
+            return _validated_codex_title_config(
+                "\n".join(lines).rstrip() + "\n"
+            )
+        if table_start is not None and table_start < index < table_end:
+            match = direct.match(line)
+            if match:
+                end = _toml_assignment_end(lines, index, "[tui]")
+                indent = match.group(1)
+                lines[index:end] = [
+                    f"{indent}{CODEX_TITLE_COMMENT}",
+                    f"{indent}terminal_title = []",
+                ]
+                return _validated_codex_title_config(
+                    "\n".join(lines).rstrip() + "\n"
+                )
+
+    if isinstance(tui, dict) and "terminal_title" in tui:
+        raise HookConfigError(
+            "Codex terminal_title uses an unsupported inline TOML form; "
+            "set tui.terminal_title = [] manually"
+        )
+    if table_start is not None:
+        insertion = table_start + 1
+        lines[insertion:insertion] = [CODEX_TITLE_COMMENT, "terminal_title = []"]
+    else:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.extend(["[tui]", CODEX_TITLE_COMMENT, "terminal_title = []"])
+    return _validated_codex_title_config("\n".join(lines).rstrip() + "\n")
+
+
+def configure_codex_ssh_title(
+    *,
+    home: Path | None = None,
+    env: Mapping[str, str] = os.environ,
+) -> Path | None:
+    """Disable Codex's competing OSC title only for plain SSH sessions."""
+    if not _plain_ssh(env):
+        return None
+    path = codex_config_path(home)
+    original = path.read_text(encoding="utf-8") if path.exists() else ""
+    content = _codex_title_config(original)
+    if content == original:
+        if path.exists() and path.stat().st_mode & 0o777 != 0o600:
+            os.chmod(path, 0o600)
+        return None
+    _write_text(path, content, backup_suffix=".konsole-pal.bak")
+    return path
+
+
+def codex_ssh_title_ready(
+    *,
+    home: Path | None = None,
+    env: Mapping[str, str] = os.environ,
+) -> bool:
+    if not _plain_ssh(env):
+        return True
+    path = codex_config_path(home)
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    tui = data.get("tui", {})
+    return isinstance(tui, dict) and tui.get("terminal_title") == []
 
 
 def _opencode_plugin(executable: str | None = None) -> str:
@@ -257,9 +406,11 @@ def install_hooks(
     home: Path | None = None,
     executable: str | None = None,
     force: bool = False,
+    env: Mapping[str, str] = os.environ,
 ) -> list[Path]:
+    selected = tuple(agents)
     changed = []
-    for agent in agents:
+    for agent in selected:
         path = hook_path(agent, home)
         if agent == "opencode":
             content = _opencode_plugin(executable)
@@ -291,6 +442,10 @@ def install_hooks(
             changed.append(path)
         elif path.exists() and path.stat().st_mode & 0o777 != 0o600:
             os.chmod(path, 0o600)
+    if "codex" in selected:
+        config_path = configure_codex_ssh_title(home=home, env=env)
+        if config_path is not None:
+            changed.append(config_path)
     return changed
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "konsole-pal"
-version = "1.0.0"
+version = "1.0.1"
 description = "A tiny local-first attention router for terminal AI agents"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -20,8 +20,10 @@ responses, transcripts, or command output and performs no network requests.
 
 Hook installation preserves unrelated entries, creates a private backup before
 changes, and refuses malformed configuration unless `--force` is explicitly
-supplied. The `run` subcommand executes the local command explicitly supplied
-after `--`; that behavior is intentional and does not use a shell.
+supplied. Plain-SSH Codex setup also preserves unrelated TOML, writes a separate
+private backup, and never bypasses Codex's explicit hook-trust review. The `run`
+subcommand executes the local command explicitly supplied after `--`; that
+behavior is intentional and does not use a shell.
 
 See [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md) for the current threat
 model and release audit.

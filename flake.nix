@@ -13,7 +13,7 @@
         in {
           default = pkgs.python3Packages.buildPythonApplication {
             pname = "konsole-pal";
-            version = "1.0.0";
+            version = "1.0.1";
             src = self;
             pyproject = true;
             build-system = [ pkgs.python3Packages.setuptools ];
