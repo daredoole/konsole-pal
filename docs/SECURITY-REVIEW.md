@@ -1,4 +1,4 @@
-# Security and privacy review — 0.7.0
+# Security and privacy review — 0.8.0
 
 Reviewed: 2026-08-03
 
@@ -48,20 +48,23 @@ Generated sounds and state remain in the user's private runtime directory.
   suite must pass before release.
 - Real tmux and Zellij integration tests verify stable target selection.
 - Visual tests assert identical cell widths and label offsets across every icon.
+- Presentation tests verify clean non-TTY output, `NO_COLOR`, JSON-only machine
+  output, and aligned human-readable rows.
 
 ## Performance measurement
 
-One 0.7.0 release measurement of the shared pulse worker reported approximately
+The shared pulse worker is unchanged from the 0.7.0 measurement of approximately
 21.5 MiB RSS and effectively 0% of one CPU while sleeping at the default 0.85 s
-cadence. Hook startup averaged approximately 59 ms. Measurements vary by Python,
-kernel, and hardware. Static animation mode exits after its first render.
+cadence. A 30-run 0.8.0 hook benchmark averaged 48.4 ms. Measurements vary by
+Python, kernel, and hardware. Static animation mode exits after its first render.
 
 ## Screenshot provenance
 
 README images were captured from a real Konsole 26.04 process inside a dedicated
-Xvfb display. The demo contains synthetic project text only. Every image was
-visually reviewed; none contains desktop content, account names, hostnames,
-filesystem paths, notifications, or device identifiers.
+Xvfb display. The tab and CLI demos contain synthetic project text only. Every
+image was visually reviewed and stripped of metadata; none contains desktop
+content, account names, hostnames, filesystem paths, notifications, or device
+identifiers.
 
 ## Residual risks
 

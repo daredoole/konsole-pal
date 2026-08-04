@@ -4,5 +4,6 @@ sound = true
 volume = 0.7
 animation = "pulse"
 animation_interval = 0.85
+sprite_size = "medium"
 label_max_cells = 26
 working_timeout = 86400

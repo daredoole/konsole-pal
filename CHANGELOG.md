@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 - 2026-08-03
+
+- Add a dependency-free, color-aware CLI presentation system with a distinctive
+  rabbit header, aligned health rows, friendly empty states, and `NO_COLOR` and
+  non-TTY fallbacks.
+- Add guided `setup`, live `demo`, shell `completions`, and JSON output for
+  status, doctor, hooks, settings, and setup automation.
+- Add small, medium, and large fixed-width sprite footprints without moving tab
+  labels between frames or states.
+- Hide private paths from normal human output while retaining explicit verbose
+  and machine-readable views.
+
 ## 0.7.0 - 2026-08-03
 
 - Correct the pre-release project spelling to `konsole-pal` across the package,

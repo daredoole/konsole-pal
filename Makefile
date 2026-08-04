@@ -18,7 +18,7 @@ build:
 	uvx --with packaging validate-pyproject pyproject.toml
 	uvx check-manifest
 	uv build --clear
-	uv run --extra dev twine check dist/*
+	uvx twine check dist/*
 	uvx check-wheel-contents dist/*.whl
 
 verify: security lint integration build

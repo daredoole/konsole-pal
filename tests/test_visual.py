@@ -6,6 +6,8 @@ import unittest
 from konsole_pal.core import (
     FINAL_ICONS,
     LABEL_MAX_CELLS,
+    SPRITE_FINAL_ICONS,
+    SPRITE_FRAMES,
     WORKING_FRAMES,
     KonsoleTarget,
     SessionState,
@@ -49,6 +51,41 @@ class TabVisualContractTests(unittest.TestCase):
             title = title_for(SessionState(state, "marker", "codex", self.target))
             labels.append(text_cell_width(title[: title.index("marker")]))
         self.assertEqual(set(labels), {5})
+
+    def test_every_sprite_size_is_fixed_width_and_grows_monotonically(self):
+        widths = []
+        for size, frames in SPRITE_FRAMES.items():
+            icons = (*frames, *SPRITE_FINAL_ICONS[size].values())
+            icon_widths = {text_cell_width(icon) for icon in icons}
+            self.assertEqual(len(icon_widths), 1, size)
+            widths.append(next(iter(icon_widths)))
+
+            offsets = set()
+            for frame in range(len(frames)):
+                title = title_for(
+                    SessionState(
+                        "working",
+                        "marker",
+                        "codex",
+                        self.target,
+                        sprite_size=size,
+                    ),
+                    frame,
+                )
+                offsets.add(text_cell_width(title[: title.index("marker")]))
+            for state in SPRITE_FINAL_ICONS[size]:
+                title = title_for(
+                    SessionState(
+                        state,
+                        "marker",
+                        "codex",
+                        self.target,
+                        sprite_size=size,
+                    )
+                )
+                offsets.add(text_cell_width(title[: title.index("marker")]))
+            self.assertEqual(len(offsets), 1, size)
+        self.assertEqual(widths, sorted(set(widths)))
 
     def test_long_or_hostile_labels_cannot_resize_tabs_without_bound(self):
         labels = (

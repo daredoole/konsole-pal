@@ -152,6 +152,7 @@ class CoreTests(unittest.TestCase):
                 sound=False,
                 animation="static",
                 animation_interval=1.25,
+                sprite_size="large",
                 label_max_cells=12,
                 working_timeout=120,
             )
@@ -169,6 +170,7 @@ class CoreTests(unittest.TestCase):
             self.assertFalse(state.focus)
             self.assertEqual(state.animation, "static")
             self.assertEqual(state.animation_interval, 1.25)
+            self.assertEqual(state.sprite_size, "large")
             self.assertEqual(state.label_max_cells, 12)
             self.assertEqual(state.working_timeout, 120)
 

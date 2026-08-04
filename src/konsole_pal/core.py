@@ -20,16 +20,36 @@ from typing import Any
 from .config import Settings
 from .sounds import play_sound
 
-# Keep the rabbit anchored and pulse only the activity sparkle. Both frames use
-# two wide emoji glyphs with no padding, so neither Qt nor terminal whitespace
-# handling can move the label or resize the tab.
-WORKING_FRAMES = ("🐇✨", "🐇⭐")
-FINAL_ICONS = {
-    "idle": "🐇💤",
-    "done": "🐇💤",
-    "attention": "🐇❗",
-    "error": "🐇💥",
+# Every size has one fixed terminal-cell width across every frame and state.
+# This changes the sprite's footprint without asking Konsole to resize its font,
+# which would affect every tab and cannot be scoped to one title safely.
+SPRITE_FRAMES = {
+    "small": ("🐇*", "🐇+"),
+    "medium": ("🐇✨", "🐇⭐"),
+    "large": ("🐇✨✨", "🐇⭐⭐"),
 }
+SPRITE_FINAL_ICONS = {
+    "small": {
+        "idle": "🐇z",
+        "done": "🐇z",
+        "attention": "🐇!",
+        "error": "🐇×",
+    },
+    "medium": {
+        "idle": "🐇💤",
+        "done": "🐇💤",
+        "attention": "🐇❗",
+        "error": "🐇💥",
+    },
+    "large": {
+        "idle": "🐇💤💤",
+        "done": "🐇💤💤",
+        "attention": "🐇❗❗",
+        "error": "🐇💥💥",
+    },
+}
+WORKING_FRAMES = SPRITE_FRAMES["medium"]
+FINAL_ICONS = SPRITE_FINAL_ICONS["medium"]
 VALID_STATES = frozenset(("working", *FINAL_ICONS))
 LABEL_MAX_CELLS = 26
 FINAL_STATE_TTL = 7 * 24 * 60 * 60
@@ -74,6 +94,7 @@ class SessionState:
     updated_at: float = 0.0
     animation: str = "pulse"
     animation_interval: float = 0.85
+    sprite_size: str = "medium"
     label_max_cells: int = LABEL_MAX_CELLS
     working_timeout: float = WORKING_STATE_TTL
 
@@ -94,6 +115,7 @@ class SessionState:
             updated_at=float(data.get("updated_at", 0)),
             animation=str(data.get("animation", "pulse")),
             animation_interval=float(data.get("animation_interval", 0.85)),
+            sprite_size=str(data.get("sprite_size", "medium")),
             label_max_cells=int(data.get("label_max_cells", LABEL_MAX_CELLS)),
             working_timeout=float(data.get("working_timeout", WORKING_STATE_TTL)),
         )
@@ -455,10 +477,11 @@ def sanitize_label(label: str, max_cells: int = LABEL_MAX_CELLS) -> str:
 
 
 def title_for(state: SessionState, frame: int = 0) -> str:
+    size = state.sprite_size if state.sprite_size in SPRITE_FRAMES else "medium"
     icon = (
-        WORKING_FRAMES[frame % len(WORKING_FRAMES)]
+        SPRITE_FRAMES[size][frame % len(SPRITE_FRAMES[size])]
         if state.state == "working"
-        else FINAL_ICONS[state.state]
+        else SPRITE_FINAL_ICONS[size][state.state]
     )
     return f"{icon} {sanitize_label(state.label, state.label_max_cells)}"
 
@@ -656,6 +679,7 @@ def update_session(
         updated_at=time.time(),
         animation=settings.animation,
         animation_interval=settings.animation_interval,
+        sprite_size=settings.sprite_size,
         label_max_cells=settings.label_max_cells,
         working_timeout=settings.working_timeout,
     )
