@@ -5,9 +5,9 @@
 [![Python](https://img.shields.io/pypi/pyversions/konsole-pal.svg)](https://pypi.org/project/konsole-pal/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/daredoole/konsole-pal/blob/main/LICENSE)
 
-A tiny, low-resource tab companion for terminal AI agents. It shows when Codex
-or Cursor is working, rests when the task is done, calls attention to questions
-and approvals, and returns you to the right tab without scraping terminal output.
+A tiny, local-first attention router for terminal AI agents. It shows when an
+agent is working, keeps genuine questions in one unread inbox, and returns you
+to the right tab without scraping terminal output.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/daredoole/konsole-pal/main/docs/images/working.gif" alt="Real Konsole window showing the anchored konsole-pal rabbit and pulsing activity sparkle" width="768">
@@ -25,8 +25,11 @@ empty states, and no decorative work when output is piped or requested as JSON.
 - **Completed:** `🐇💤` — a resting bunny plus a soft ascending chime.
 - **Needs you:** `🐇❗` — tab handoff plus a short “meeep.”
 - **Failed:** `🐇💥` — a visible error state and attention sound.
+- A durable attention inbox with deterministic `next` and `ack` commands.
 - One sleeping animator for every tab, not one process per tab.
-- Native Konsole, Zellij, tmux, SSH, and generic terminal support.
+- Codex, Cursor, Claude Code, Gemini CLI, OpenCode, Copilot CLI, and Aider adapters.
+- Native Konsole, Zellij, tmux, Kitty, WezTerm, Ghostty, SSH, and generic support.
+- Validated rabbit, ASCII, monochrome, and local data-only theme packs.
 - Safe hook installation that merges existing configuration and creates backups.
 - No network access, telemetry, prompt storage, or transcript storage.
 
@@ -49,7 +52,8 @@ filesystem path, notifications, or device information.
 
 Interactive commands use a terminal-native palette and aligned status rows.
 `NO_COLOR` disables color, non-TTY output contains no escape sequences, and
-`--json` is available for status, setup, doctor, settings, and hook health.
+`--json` is available for status, inbox, emit, setup, doctor, settings, themes,
+and hook health.
 
 ## Install in three commands
 
@@ -62,7 +66,8 @@ konsole-pal setup
 konsole-pal demo
 ```
 
-Restart Codex and Cursor after installing the hooks. That is it.
+Setup connects the supported agents detected on your machine. Restart those
+agents after installation. That is it.
 
 Prefer `uv`?
 
@@ -84,7 +89,7 @@ The installer preserves unrelated hooks, writes mode-0600 files, and makes a
 `hooks.json.bak` before changing an existing file.
 
 ```sh
-# Guided setup for both agents
+# Guided setup for detected agents
 konsole-pal setup
 
 # Calm defaults without prompts (useful for dotfiles)
@@ -93,24 +98,41 @@ konsole-pal setup --yes
 # Or one agent
 konsole-pal setup codex
 konsole-pal setup cursor
+konsole-pal setup claude gemini opencode copilot aider
 
 # Confirm the active configuration
 konsole-pal hooks status
 ```
 
-Codex events map as follows:
+Every adapter normalizes its native lifecycle into the same four events:
 
-| Event | Result |
+| Native event class | Konsole Pal state |
 | --- | --- |
-| `SessionStart` | Resting |
-| `UserPromptSubmit` | Working |
-| `PreToolUse(request_user_input)` | Needs you |
-| `PermissionRequest` | Needs you |
-| `Stop` | Completed, or needs you when the final message is a question |
+| prompt submitted / agent starts | Working |
+| permission, approval, question | Needs you |
+| agent stop / idle / after-agent | Completed |
+| stop failure / session error | Failed |
 
-Cursor's `beforeSubmitPrompt` starts work and `stop` completes it. Example hook
-files are available in [examples](https://github.com/daredoole/konsole-pal/tree/main/examples)
-for users who prefer manual setup.
+Hook installers preserve unrelated configuration and create private backups.
+Aider uses its official notification command; OpenCode gets a data-minimizing
+local plugin. `konsole-pal emit STATE --agent NAME` integrates any other tool.
+
+## Attention inbox
+
+Completion is display state; attention is durable unread state; focus is a
+short-lived event. Keeping them separate prevents an old completion from ever
+stealing focus after an animator restart.
+
+```sh
+konsole-pal inbox          # only unread questions, approvals, and failures
+konsole-pal next           # jump to and acknowledge the newest focusable item
+konsole-pal ack codex      # clear one matching item
+konsole-pal ack --all
+konsole-pal watch          # optional on-demand view; no permanent dashboard
+```
+
+`next` acknowledges only after the terminal confirms that it focused the target.
+An unsupported remote target stays unread instead of silently disappearing.
 
 ## Terminal support
 
@@ -119,11 +141,14 @@ for users who prefer manual setup.
 | Konsole | Native D-Bus tab title | Selects the originating Konsole tab |
 | Zellij | Stable tab ID; pane fallback | Focuses the originating pane/tab |
 | tmux | Stable window title and socket | Selects the originating window/pane |
-| SSH / other terminals | OSC title on the original PTY | Terminal bell |
+| Kitty | OSC title + clickable OSC 99 notification | Focuses by window ID when permitted |
+| WezTerm | OSC title + native notification | Activates the originating pane |
+| Ghostty | OSC title + OSC 9 notification | Clickable terminal notification |
+| SSH / other terminals | OSC title on the original PTY | Terminal notification or bell |
 
-Nested environments are detected automatically in this order: Zellij, tmux,
-Konsole, then generic OSC. Remote agents cannot and should not force-focus a
-local GUI window; SSH uses the title plus terminal bell instead.
+Nested multiplexers take priority over their host terminal. Remote agents never
+invoke local desktop automation; they use terminal escape protocols carried by
+the originating PTY.
 
 ## Settings
 
@@ -140,20 +165,29 @@ konsole-pal config show
 konsole-pal config set focus attention
 konsole-pal config set volume 0.45
 konsole-pal config set sprite_size large
+konsole-pal config set theme ascii
+konsole-pal config set quiet_hours 22:00-08:00
+konsole-pal config set sound false --agent claude
 konsole-pal config set animation static --project
 konsole-pal config reset volume
 ```
 
 | Setting | Values | Default |
 | --- | --- | --- |
-| `focus` | `all`, `attention`, `never` | `all` |
+| `preset` | `minimal`, `balanced`, `playful` | `balanced` |
+| `focus` | `all`, `attention`, `never` | `attention` |
 | `sound` | `true`, `false` | `true` |
 | `volume` | `0.0`–`1.0` | `0.7` |
+| `sound_theme` | `soft`, `arcade`, `silent` | `soft` |
 | `animation` | `pulse`, `static` | `pulse` |
 | `animation_interval` | `0.2`–`10.0` seconds | `0.85` |
 | `sprite_size` | `small`, `medium`, `large` | `medium` |
+| `theme` | built-in or validated installed theme | `rabbit` |
+| `notification` | `auto`, `off`, `terminal`, `desktop`, `bell` | `auto` |
+| `quiet_hours` | `off` or `HH:MM-HH:MM` | `off` |
+| `attention_timeout` | `0` or `60`–`2592000` seconds | `86400` |
 | `label_max_cells` | `8`–`80` | `26` |
-| `working_timeout` | `0` or `60`–`604800` seconds | `86400` |
+| `working_timeout` | `0` or `60`–`604800` seconds | `14400` |
 
 `focus=attention` is a calmer setup: questions, approvals, and errors select
 their tabs, while normal completions only rest and chime. `animation=static`
@@ -161,11 +195,26 @@ shows one working icon and immediately exits the animator for effectively zero
 idle resource use. Sprite presets change the rabbit's fixed-width footprint;
 Konsole controls the actual emoji font size for the whole tab bar.
 
+Project policy belongs in `.konsole-pal.toml`; agent overrides use tables such
+as `[agents.claude]`. The CLI writes them safely with `--agent`. Presets apply
+first, so explicit settings always win.
+
 | Sprite preset | Working | Complete | Needs you |
 | --- | --- | --- | --- |
 | `small` | `🐇*` / `🐇+` | `🐇z` | `🐇!` |
 | `medium` | `🐇✨` / `🐇⭐` | `🐇💤` | `🐇❗` |
 | `large` | `🐇✨✨` / `🐇⭐⭐` | `🐇💤💤` | `🐇❗❗` |
+
+Preview or install a data-only JSON theme:
+
+```sh
+konsole-pal theme list
+konsole-pal theme preview ascii --sprite-size large
+konsole-pal theme install ./my-fixed-width-theme.json
+```
+
+Every frame and final state must occupy exactly the same number of terminal
+cells. Manifests containing control characters or shifting widths are rejected.
 
 See [examples/config.toml](https://github.com/daredoole/konsole-pal/blob/main/examples/config.toml)
 for a complete file.
@@ -183,6 +232,7 @@ Or update the current tab directly:
 ```sh
 konsole-pal set working --agent codex
 konsole-pal set attention --agent codex --focus
+konsole-pal emit working --agent my-agent
 konsole-pal status
 konsole-pal sound done
 konsole-pal sound attention
@@ -204,6 +254,7 @@ konsole-pal reset
 - **No bunny:** run `konsole-pal doctor --repair`, restart the agent, and submit a prompt.
 - **No sound:** run `konsole-pal sound done` and install PipeWire, PulseAudio, or ALSA tools.
 - **Too much tab switching:** run `konsole-pal config set focus attention`.
+- **Missed request:** run `konsole-pal inbox --verbose`, then `konsole-pal next`.
 - **Prefer no motion:** run `konsole-pal config set animation static`.
 - **Stale title:** run `konsole-pal reset`.
 - **SSH:** install konsole-pal and its hooks on the remote host as well.
@@ -216,6 +267,7 @@ state. It does not remove settings or agent hooks.
 - Runtime files live under `$XDG_RUNTIME_DIR/konsole-pal` in a mode-0700 directory.
 - State, configuration, generated sounds, hook files, and backups use mode 0600.
 - State contains only a short display label and terminal routing identifiers.
+- Desktop and terminal notifications contain only the generic state and that label.
 - Prompts, responses, transcripts, command output, and environment dumps are never stored.
 - Labels are stripped of control characters and width-limited before reaching a title.
 - External programs are invoked with argument arrays and `shell=False`.
@@ -234,9 +286,9 @@ and audit results.
 ## Resource use
 
 All tabs share one low-priority Python worker. It sleeps between 0.85-second
-updates and exits after work ends. The 0.7.0 release measurement showed
-effectively 0% CPU while sleeping, approximately 21.5 MiB RSS for the single
-shared worker, and approximately 59 ms hook startup. Results vary by system.
+updates and exits after work ends. A 1.0.0 release measurement showed 0.0% CPU
+while sleeping, approximately 19.6 MiB RSS for the single shared worker, and
+approximately 54.8 ms average hook startup (58.2 ms p95). Results vary by system.
 
 The polished CLI adds no runtime dependency and does not run in the background.
 Static animation mode exits immediately after rendering the working title.
@@ -276,6 +328,8 @@ and the [MIT license](https://github.com/daredoole/konsole-pal/blob/main/LICENSE
 - Focus handoff selects a tab inside its existing Konsole window. It does not
   force the Konsole application above unrelated desktop windows.
 - Generic terminals and SSH receive an OSC title and bell, not local GUI control.
+- Kitty focus requires its opt-in remote-control capability; without it the item
+  remains unread and the CLI explains why.
 - Cursor's stop event does not always distinguish an answer from a question, so
   it receives the configured completion handoff.
 

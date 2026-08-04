@@ -11,13 +11,14 @@ from konsole_pal.cli import (
     build_parser,
     command_completions,
     command_demo,
+    command_next,
     command_run,
     command_setup,
     command_status,
     main,
 )
 from konsole_pal.config import Settings
-from konsole_pal.core import KonsoleTarget
+from konsole_pal.core import KonsoleTarget, SessionState
 
 
 class CliTests(unittest.TestCase):
@@ -33,6 +34,16 @@ class CliTests(unittest.TestCase):
         self.assertEqual(setup.sprite_size, "large")
         completion = parser.parse_args(["completions", "fish"])
         self.assertEqual(completion.shell, "fish")
+        inbox = parser.parse_args(["inbox", "--json"])
+        self.assertTrue(inbox.json)
+        emit = parser.parse_args(["emit", "attention", "--agent", "gemini"])
+        self.assertEqual((emit.state, emit.agent), ("attention", "gemini"))
+        scoped = parser.parse_args(
+            ["config", "set", "sound", "false", "--agent", "claude"]
+        )
+        self.assertEqual(scoped.agent, "claude")
+        theme = parser.parse_args(["theme", "preview", "ascii"])
+        self.assertEqual(theme.theme_action, "preview")
 
     def test_help_prioritizes_onboarding_and_hides_internal_bridge(self):
         help_text = build_parser().format_help()
@@ -139,6 +150,30 @@ class CliTests(unittest.TestCase):
             command_completions(argparse.Namespace(shell="bash"))
         self.assertIn("complete -F _konsole_pal", output.getvalue())
         self.assertNotIn("Konsole Pal\n", output.getvalue())
+
+    @patch("konsole_pal.cli.acknowledge_attention", return_value=True)
+    @patch("konsole_pal.cli._attention_items")
+    def test_next_skips_newer_unfocusable_remote_item(self, items, acknowledge):
+        remote = SessionState(
+            "attention",
+            "Remote",
+            "codex",
+            KonsoleTarget("", "", "", backend="osc", remote=True),
+            updated_at=20,
+        )
+        local = SessionState(
+            "attention",
+            "Local",
+            "claude",
+            KonsoleTarget("service", "/Sessions/2", "/Windows/1"),
+            updated_at=10,
+        )
+        items.return_value = [(Path("remote.json"), remote), (Path("local.json"), local)]
+
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(command_next(argparse.Namespace(target=None)), 0)
+
+        acknowledge.assert_called_once_with(Path("local.json"), activate=True)
 
 
 if __name__ == "__main__":

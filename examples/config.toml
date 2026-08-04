@@ -1,9 +1,23 @@
 [settings]
+preset = "balanced"
 focus = "attention"
 sound = true
 volume = 0.7
+sound_theme = "soft"
 animation = "pulse"
 animation_interval = 0.85
 sprite_size = "medium"
+theme = "rabbit"
+notification = "auto"
+quiet_hours = "off"
+attention_timeout = 86400
 label_max_cells = 26
-working_timeout = 86400
+working_timeout = 14400
+
+[agents.claude]
+# Agent-specific settings override global and project settings.
+focus = "attention"
+
+[agents.aider]
+# Aider already notifies only when it is waiting for input.
+sound_theme = "soft"

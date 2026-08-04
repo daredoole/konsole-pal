@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "konsole-pal"
-version = "0.8.0"
-description = "Animated Konsole tab status and focus handoff for terminal AI agents"
+version = "1.0.0"
+description = "A tiny local-first attention router for terminal AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "konsole-pal contributors" }]
 dependencies = ["tomli>=2.0; python_version < '3.11'"]
-keywords = ["konsole", "codex", "cursor", "terminal", "agent"]
+keywords = ["konsole", "codex", "claude", "cursor", "terminal", "agent", "notification"]
 classifiers = [
   "Environment :: Console",
   "Programming Language :: Python :: 3",

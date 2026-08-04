@@ -15,9 +15,11 @@ from konsole_pal.core import (
     SessionState,
     emit_bell,
     emit_osc_title,
+    emit_terminal_notification,
     event_to_state,
     focus_tab,
     looks_like_question,
+    notify_state,
     read_state,
     reset_runtime,
     set_title,
@@ -72,6 +74,17 @@ class CoreTests(unittest.TestCase):
         self.assertIsNotNone(target)
         self.assertEqual(target.backend, "osc")
         self.assertEqual(target.tty_path, "/dev/pts/9")
+        self.assertTrue(target.remote)
+
+    @patch("konsole_pal.core._controlling_tty_path", return_value="/dev/pts/9")
+    def test_common_terminals_receive_native_targets(self, _tty):
+        kitty = target_from_env({"KITTY_WINDOW_ID": "14", "TERM": "xterm-kitty"})
+        wezterm = target_from_env({"WEZTERM_PANE": "22", "TERM": "xterm-256color"})
+        ghostty = target_from_env({"TERM_PROGRAM": "ghostty", "TERM": "xterm-ghostty"})
+
+        self.assertEqual((kitty.backend, kitty.pane_id), ("kitty", "14"))
+        self.assertEqual((wezterm.backend, wezterm.pane_id), ("wezterm", "22"))
+        self.assertEqual(ghostty.backend, "ghostty")
 
     def test_event_mapping(self):
         self.assertEqual(
@@ -99,6 +112,63 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(
             event_to_state("cursor", {"hook_event_name": "stop", "status": "completed"}),
             ("done", True),
+        )
+        self.assertEqual(
+            event_to_state("gemini", {"hook_event_name": "AfterAgent"}),
+            ("done", True),
+        )
+        self.assertEqual(
+            event_to_state("opencode", {"event": {"type": "permission.asked"}}),
+            ("attention", True),
+        )
+        self.assertEqual(
+            event_to_state("copilot", {"hook_event_name": "errorOccurred"}),
+            ("error", True),
+        )
+
+    @patch("konsole_pal.core._write_tty", return_value=True)
+    def test_kitty_notification_is_clickable_and_sanitized(self, write):
+        target = KonsoleTarget(
+            "", "", "", backend="kitty", tty_path="/dev/pts/9", pane_id="12"
+        )
+
+        self.assertTrue(
+            emit_terminal_notification(target, "Needs you\x1b", "Agent\x07 tab")
+        )
+
+        payload = write.call_args.args[0]
+        self.assertIn(b"\x1b]99;", payload)
+        self.assertIn(b"a=focus", payload)
+        self.assertEqual(payload.count(b"\x1b"), 4)
+        self.assertNotIn(b"\x07", payload)
+
+    @patch("konsole_pal.core.emit_terminal_notification", return_value=True)
+    def test_remote_auto_notification_stays_in_terminal(self, terminal_notify):
+        target = KonsoleTarget("", "", "", backend="osc", remote=True)
+
+        self.assertTrue(notify_state(target, "attention", "Codex demo", "auto"))
+
+        terminal_notify.assert_called_once_with(
+            target, "Agent needs you", "Codex demo"
+        )
+
+    @patch("konsole_pal.core._run_quiet", return_value=True)
+    @patch("konsole_pal.core.shutil.which")
+    def test_kitty_and_wezterm_focus_use_argument_arrays(self, which, run):
+        which.side_effect = lambda name: f"/usr/bin/{name}"
+        kitty = KonsoleTarget("", "", "", backend="kitty", pane_id="12")
+        wezterm = KonsoleTarget("", "", "", backend="wezterm", pane_id="22")
+
+        self.assertTrue(focus_tab(kitty))
+        self.assertTrue(focus_tab(wezterm))
+
+        self.assertEqual(
+            run.call_args_list[0].args[0],
+            ["/usr/bin/kitten", "@", "focus-window", "--match", "id:12"],
+        )
+        self.assertEqual(
+            run.call_args_list[1].args[0],
+            ["/usr/bin/wezterm", "cli", "activate-pane", "--pane-id", "22"],
         )
 
     def test_question_detection(self):
@@ -331,20 +401,28 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(write.call_args_list[0].args[1], "/dev/pts/9")
         self.assertEqual(write.call_args_list[1].args, (b"\x07", "/dev/pts/9"))
 
-    def test_real_pty_carries_ssh_title_and_bell_bytes(self):
+    def test_real_pty_carries_ssh_title_notification_and_bell_bytes(self):
         master, slave = pty.openpty()
         try:
             tty_path = os.ttyname(slave)
             self.assertTrue(emit_osc_title("🐇 remote", tty_path))
             self.assertTrue(emit_bell(KonsoleTarget("", "", "", backend="osc", tty_path=tty_path)))
+            self.assertTrue(
+                emit_terminal_notification(
+                    KonsoleTarget("", "", "", backend="osc", tty_path=tty_path),
+                    "Needs you",
+                    "Remote agent",
+                )
+            )
             payload = b""
             deadline = time.monotonic() + 1
-            while time.monotonic() < deadline and not payload.endswith(b"\x07\x07"):
+            while time.monotonic() < deadline and b"\x1b]9;Needs you" not in payload:
                 readable, _, _ = select.select([master], [], [], 0.05)
                 if readable:
                     payload += os.read(master, 1024)
             self.assertIn(b"\x1b]0;", payload)
-            self.assertTrue(payload.endswith(b"\x07\x07"))
+            self.assertIn(b"\x07\x07", payload)
+            self.assertIn(b"\x1b]9;Needs you: Remote agent\x1b\\", payload)
         finally:
             os.close(master)
             os.close(slave)

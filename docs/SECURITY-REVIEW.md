@@ -1,12 +1,13 @@
-# Security and privacy review — 0.8.0
+# Security and privacy review — 1.0.0
 
-Reviewed: 2026-08-03
+Reviewed: 2026-08-04
 
 ## Scope
 
 The review covered tracked source and history, package metadata, generated
 release artifacts, hook merging, runtime state, title rendering, subprocess
-boundaries, screenshots, and idle resource behavior.
+boundaries, attention acknowledgement, terminal notifications, custom theme
+validation, package-manager recipes, screenshots, and idle resource behavior.
 
 ## Data flow
 
@@ -18,6 +19,8 @@ and command output are neither retained nor transmitted.
 The package contains no network client. Python 3.11+ declares no runtime
 dependencies; Python 3.10 uses only the `tomli` standard-library backport.
 Generated sounds and state remain in the user's private runtime directory.
+Notifications contain a generic state plus the already-visible, width-limited
+tab label; hook payload messages and transcript paths are discarded.
 
 ## Controls
 
@@ -26,6 +29,10 @@ Generated sounds and state remain in the user's private runtime directory.
 - State/config writes use temporary files followed by atomic replacement.
 - Hook installation merges existing JSON, preserves unrelated entries, creates a
   backup, and fails closed on malformed input unless the user supplies `--force`.
+- OpenCode receives a local event-only plugin; Aider uses its documented
+  notification command. Neither adapter reads transcripts or prompt text.
+- Custom themes are inert JSON. Names, control characters, completeness, and
+  equal terminal-cell widths are validated before an atomic private install.
 - Terminal labels remove control characters, normalize whitespace, and enforce a
   terminal-cell limit before reaching D-Bus or OSC.
 - OSC output strips escape and bell characters and writes only to `/dev/tty` or a
@@ -34,6 +41,8 @@ Generated sounds and state remain in the user's private runtime directory.
   timeouts where appropriate, closed file descriptors, and suppressed output.
 - Focus requests expire quickly and are consumed atomically, preventing stale
   completions from selecting a tab later.
+- Attention remains unread until focus succeeds; unsupported targets cannot
+  silently acknowledge or discard an approval request.
 - Animator PID reuse is checked against `/proc` before signaling or reuse.
 
 ## Automated checks
@@ -53,10 +62,10 @@ Generated sounds and state remain in the user's private runtime directory.
 
 ## Performance measurement
 
-The shared pulse worker is unchanged from the 0.7.0 measurement of approximately
-21.5 MiB RSS and effectively 0% of one CPU while sleeping at the default 0.85 s
-cadence. A 30-run 0.8.0 hook benchmark averaged 48.4 ms. Measurements vary by
-Python, kernel, and hardware. Static animation mode exits after its first render.
+A five-second 1.0.0 measurement recorded approximately 19.6 MiB RSS and 0.0% of
+one CPU while the shared worker slept at the default 0.85 s cadence. A 30-run
+hook benchmark averaged 54.8 ms (58.2 ms p95). Measurements vary by Python,
+kernel, and hardware. Static animation mode exits after its first render.
 
 ## Screenshot provenance
 

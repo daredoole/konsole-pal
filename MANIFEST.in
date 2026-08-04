@@ -1,4 +1,7 @@
 include CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md SECURITY.md
-include Makefile uv.lock
+include Makefile uv.lock flake.nix
 recursive-include examples *.json *.toml
 recursive-include docs *.md *.png *.gif
+recursive-include packaging *.md
+recursive-include scripts *.py
+recursive-include tests *.py
